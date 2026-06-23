@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Cup 2026 Pool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0f1a14;color:#f5f0e8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;}
+.app{max-width:900px;margin:0 auto;padding:0.75rem;}
+.hdr{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.hdr h1{font-size:16px;font-weight:600;letter-spacing:-0.02em;}
+.hdr .sub{font-size:11px;color:#6b8a72;}
+.sync{font-size:10px;margin-left:auto;color:#6b8a72;}
+.sync.live{color:#2a7a4b;}
+.ban{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+@media(max-width:500px){.ban{grid-template-columns:repeat(2,1fr);}}
+.bc{background:#1a2e1f;border:0.5px solid #2d4a33;border-radius:10px;padding:10px 12px;}
+.bl{font-size:10px;color:#6b8a72;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+.bv{font-size:20px;font-weight:600;line-height:1;}
+.bs{font-size:10px;color:#6b8a72;margin-top:3px;}
+.bs.lead{color:#2a7a4b;font-weight:500;}
+.panel{background:#1a2e1f;border:0.5px solid #2d4a33;border-radius:10px;overflow:hidden;}
+.tab-row{display:flex;border-bottom:0.5px solid #2d4a33;overflow-x:auto;}
+.tab-row::-webkit-scrollbar{display:none;}
+.rtab{flex:0 0 auto;padding:10px 14px;font-size:12px;font-weight:500;text-align:center;cursor:pointer;border:none;border-right:0.5px solid #2d4a33;background:#1a2e1f;color:#6b8a72;font-family:inherit;white-space:nowrap;}
+.rtab:last-child{border-right:none;}
+.rtab.on{background:#0f1a14;color:#f5f0e8;}
+.pb{padding:12px 14px;}
+.fl{font-size:10px;color:#6b8a72;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+.fr{margin-bottom:10px;}
+select{width:100%;background:#0f1a14;border:0.5px solid #2d4a33;border-radius:6px;color:#f5f0e8;font-size:12px;padding:7px 9px;font-family:inherit;appearance:none;outline:none;}
+select:focus{border-color:#2a7a4b;}
+.btn{background:#2a7a4b;color:#f5f0e8;border:none;border-radius:6px;padding:8px 16px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;}
+.btn:disabled{opacity:0.5;cursor:not-allowed;}
+.btn-ghost{background:transparent;border:0.5px solid #2d4a33;color:#8a9e8f;border-radius:6px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit;}
+.toggle{display:flex;gap:5px;margin-top:4px;}
+.topt{flex:1;padding:7px 3px;font-size:11px;text-align:center;border-radius:5px;border:0.5px solid #2d4a33;background:#0f1a14;color:#8a9e8f;cursor:pointer;}
+.topt.on{background:#2a7a4b;color:#f5f0e8;border-color:#2a7a4b;}
+.day-sec{margin-bottom:16px;}
+.day-sec:last-child{margin-bottom:0;}
+.day-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:5px;border-bottom:0.5px solid #1e3824;}
+.day-date{font-size:10px;color:#6b8a72;text-transform:uppercase;letter-spacing:.06em;}
+.day-picker{font-size:11px;color:#8a9e8f;}
+.day-picker span{color:#2a7a4b;}
+.mrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:0.5px solid #1e3824;}
+.mrow:last-child{border-bottom:none;}
+.mteams{font-size:12px;color:#f5f0e8;font-weight:500;}
+.mmeta{font-size:10px;color:#6b8a72;margin-top:1px;}
+.mpick{font-size:11px;margin-top:2px;}
+.cv{color:#2a7a4b;}.wv{color:#c44;}.pv{color:#8a9e8f;}
+.chip{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500;white-space:nowrap;}
+.cw{background:#0d2e18;color:#2a7a4b;border:0.5px solid #2a7a4b;}
+.cl{background:#2e0d0d;color:#c44;border:0.5px solid #c44;}
+.cp{background:#1e2e22;color:#6b8a72;border:0.5px solid #2d4a33;}
+.clive{background:#2e1a0d;color:#e07020;border:0.5px solid #e07020;}
+.srow{display:grid;grid-template-columns:1fr auto;gap:6px;padding:6px 0;border-bottom:0.5px solid #1e3824;align-items:center;}
+.srow:last-child{border-bottom:none;}
+.sg{font-size:10px;color:#2a7a4b;background:#0d2e18;padding:2px 5px;border-radius:3px;}
+.divider{margin-top:14px;padding-top:12px;border-top:0.5px solid #1e3824;}
+.fa{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;}
+.ok{font-size:11px;color:#2a7a4b;}
+.err{font-size:11px;color:#c44;}
+.note{font-size:10px;color:#6b8a72;margin-top:5px;}
+.spinner{display:inline-block;width:11px;height:11px;border:1.5px solid #2d4a33;border-top-color:#2a7a4b;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.today-lbl{font-size:12px;color:#8a9e8f;margin-bottom:8px;}
+.today-lbl b{color:#f5f0e8;}
+.empty{font-size:12px;color:#6b8a72;padding:4px 0;}
+.stakes-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+.stakes-table th{text-align:left;font-size:10px;color:#6b8a72;text-transform:uppercase;letter-spacing:.06em;padding:6px 0;border-bottom:0.5px solid #2d4a33;}
+.stakes-table td{padding:8px 0;border-bottom:0.5px solid #1e3824;color:#f5f0e8;}
+.stakes-table tr:last-child td{border-bottom:none;}
+.stakes-table .amt{color:#2a7a4b;font-weight:600;}
+.stakes-note{font-size:11px;color:#8a9e8f;margin-top:12px;line-height:1.5;}
+</style>
+</head>
+<body>
+<div id="root"><div style="color:#6b8a72;padding:2rem;font-family:sans-serif;text-align:center;">Loading...</div></div>
+<script type="text/babel">
+
+// ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
+const SUPABASE_URL = "https://jayhaezfjavozzvmraak.supabase.co";
+const SUPABASE_KEY = "sb_publishable_TkW-HPNMF62b3DrPdlb2DQ_3gSW1Yrd";
+// ─────────────────────────────────────────────────────────────────────────────
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const { useState, useEffect, useCallback, useRef } = React;
+const TODAY = new Date().toLocaleDateString("en-CA", { timeZone: "America/Vancouver" });
+
+const SCHEDULE = [
+  { date:"2026-06-14", day:"Sun Jun 14", picker:"Thomas", matches:[
+    { id:"m02", time:"10:00 AM PT", home:"Germany",     away:"Curacao",     group:"E" },
+    { id:"m03", time:"1:00 PM PT",  home:"Netherlands", away:"Japan",       group:"F" },
+    { id:"m04", time:"4:00 PM PT",  home:"Ivory Coast", away:"Ecuador",     group:"E" },
+    { id:"m05", time:"7:00 PM PT",  home:"Sweden",      away:"Tunisia",     group:"F" },
+  ]},
+  { date:"2026-06-15", day:"Mon Jun 15", picker:"David", matches:[
+    { id:"m06", time:"9:00 AM PT",  home:"Spain",        away:"Cape Verde",  group:"H" },
+    { id:"m07", time:"12:00 PM PT", home:"Belgium",      away:"Egypt",       group:"G" },
+    { id:"m08", time:"3:00 PM PT",  home:"Saudi Arabia", away:"Uruguay",     group:"H" },
+    { id:"m09", time:"6:00 PM PT",  home:"Iran",         away:"New Zealand", group:"G" },
+  ]},
+  { date:"2026-06-16", day:"Tue Jun 16", picker:"Thomas", matches:[
+    { id:"m11", time:"12:00 PM PT", home:"France",    away:"Senegal", group:"I" },
+    { id:"m14", time:"3:00 PM PT",  home:"Iraq",      away:"Norway",  group:"I" },
+    { id:"m15", time:"6:00 PM PT",  home:"Argentina", away:"Algeria", group:"J" },
+    { id:"m10", time:"9:00 PM PT",  home:"Austria",   away:"Jordan",  group:"J" },
+  ]},
+  { date:"2026-06-17", day:"Wed Jun 17", picker:"David", matches:[
+    { id:"m12", time:"10:00 AM PT", home:"Portugal",   away:"DR Congo",   group:"K" },
+    { id:"m13", time:"1:00 PM PT",  home:"England",    away:"Croatia",    group:"L" },
+    { id:"m16", time:"4:00 PM PT",  home:"Ghana",      away:"Panama",     group:"L" },
+    { id:"m17", time:"9:00 PM PT",  home:"Uzbekistan", away:"Colombia",   group:"K" },
+  ]},
+  { date:"2026-06-18", day:"Thu Jun 18", picker:"Thomas", matches:[
+    { id:"m18", time:"9:00 AM PT",  home:"Czechia",     away:"South Africa", group:"A" },
+    { id:"m19", time:"12:00 PM PT", home:"Switzerland", away:"Bosnia",       group:"B" },
+    { id:"m20", time:"3:00 PM PT",  home:"Canada",      away:"Qatar",        group:"B" },
+    { id:"m21", time:"6:00 PM PT",  home:"Mexico",      away:"South Korea",  group:"A" },
+  ]},
+  { date:"2026-06-19", day:"Fri Jun 19", picker:"David", matches:[
+    { id:"m22", time:"9:00 AM PT",  home:"Turkiye",  away:"Paraguay",  group:"D" },
+    { id:"m23", time:"12:00 PM PT", home:"USA",      away:"Australia", group:"D" },
+    { id:"m24", time:"3:00 PM PT",  home:"Scotland", away:"Morocco",   group:"C" },
+    { id:"m25", time:"6:00 PM PT",  home:"Brazil",   away:"Haiti",     group:"C" },
+  ]},
+  { date:"2026-06-20", day:"Sat Jun 20", picker:"Thomas", matches:[
+    { id:"m26", time:"9:00 PM PT (Fri)", home:"Tunisia",     away:"Japan",      group:"F" },
+    { id:"m28", time:"10:00 AM PT",      home:"Netherlands", away:"Sweden",     group:"F" },
+    { id:"m27", time:"1:00 PM PT",       home:"Germany",     away:"Ivory Coast",group:"E" },
+    { id:"m29", time:"5:00 PM PT",       home:"Ecuador",     away:"Curacao",    group:"E" },
+  ]},
+  { date:"2026-06-21", day:"Sun Jun 21", picker:"David", matches:[
+    { id:"m30", time:"9:00 AM PT",  home:"Spain",       away:"Saudi Arabia", group:"H" },
+    { id:"m31", time:"12:00 PM PT", home:"Belgium",     away:"Iran",         group:"G" },
+    { id:"m32", time:"3:00 PM PT",  home:"Uruguay",     away:"Cape Verde",   group:"H" },
+    { id:"m33", time:"6:00 PM PT",  home:"New Zealand", away:"Egypt",        group:"G" },
+  ]},
+  { date:"2026-06-22", day:"Mon Jun 22", picker:"Thomas", matches:[
+    { id:"m34", time:"10:00 AM PT", home:"Argentina", away:"Austria",  group:"J" },
+    { id:"m35", time:"2:00 PM PT",  home:"France",    away:"Iraq",     group:"I" },
+    { id:"m36", time:"5:00 PM PT",  home:"Norway",    away:"Senegal",  group:"I" },
+    { id:"m37", time:"8:00 PM PT",  home:"Jordan",    away:"Algeria",  group:"J" },
+  ]},
+  { date:"2026-06-23", day:"Tue Jun 23", picker:"David", matches:[
+    { id:"m38", time:"10:00 AM PT", home:"Portugal",  away:"Uzbekistan", group:"K" },
+    { id:"m39", time:"1:00 PM PT",  home:"England",   away:"Ghana",      group:"L" },
+    { id:"m40", time:"4:00 PM PT",  home:"Panama",    away:"Croatia",    group:"L" },
+    { id:"m41", time:"7:00 PM PT",  home:"Colombia",  away:"DR Congo",   group:"K" },
+  ]},
+  { date:"2026-06-24", day:"Wed Jun 24", picker:"Thomas", matches:[
+    { id:"m42", time:"6:00 AM PT",  home:"Czechia",     away:"Mexico",      group:"A" },
+    { id:"m43", time:"6:00 AM PT",  home:"South Africa",away:"South Korea", group:"A" },
+    { id:"m44", time:"12:00 PM PT", home:"Switzerland", away:"Canada",      group:"B" },
+    { id:"m45", time:"12:00 PM PT", home:"Bosnia",      away:"Qatar",       group:"B" },
+    { id:"m46", time:"3:00 PM PT",  home:"Scotland",    away:"Brazil",      group:"C" },
+    { id:"m47", time:"3:00 PM PT",  home:"Morocco",     away:"Haiti",       group:"C" },
+  ]},
+  { date:"2026-06-25", day:"Thu Jun 25", picker:"David", matches:[
+    { id:"m48", time:"1:00 PM PT",  home:"Ecuador",  away:"Germany",     group:"E" },
+    { id:"m49", time:"1:00 PM PT",  home:"Curacao",  away:"Ivory Coast", group:"E" },
+    { id:"m50", time:"4:00 PM PT",  home:"Japan",    away:"Sweden",      group:"F" },
+    { id:"m51", time:"4:00 PM PT",  home:"Tunisia",  away:"Netherlands", group:"F" },
+    { id:"m52", time:"7:00 PM PT",  home:"Turkiye",  away:"USA",         group:"D" },
+    { id:"m53", time:"7:00 PM PT",  home:"Paraguay", away:"Australia",   group:"D" },
+  ]},
+  { date:"2026-06-26", day:"Fri Jun 26", picker:"Thomas", matches:[
+    { id:"m54", time:"12:00 PM PT", home:"Norway",      away:"France",       group:"I" },
+    { id:"m55", time:"12:00 PM PT", home:"Senegal",     away:"Iraq",         group:"I" },
+    { id:"m56", time:"5:00 PM PT",  home:"Cape Verde",  away:"Saudi Arabia", group:"H" },
+    { id:"m57", time:"5:00 PM PT",  home:"Uruguay",     away:"Spain",        group:"H" },
+    { id:"m58", time:"8:00 PM PT",  home:"Egypt",       away:"Iran",         group:"G" },
+    { id:"m59", time:"8:00 PM PT",  home:"New Zealand", away:"Belgium",      group:"G" },
+  ]},
+  { date:"2026-06-27", day:"Sat Jun 27", picker:"David", matches:[
+    { id:"m60", time:"2:00 PM PT",  home:"Panama",     away:"England",   group:"L" },
+    { id:"m61", time:"2:00 PM PT",  home:"Croatia",    away:"Ghana",     group:"L" },
+    { id:"m62", time:"4:30 PM PT",  home:"Colombia",   away:"Portugal",  group:"K" },
+    { id:"m63", time:"4:30 PM PT",  home:"DR Congo",   away:"Uzbekistan",group:"K" },
+    { id:"m64", time:"7:00 PM PT",  home:"Algeria",    away:"Austria",   group:"J" },
+    { id:"m65", time:"7:00 PM PT",  home:"Jordan",     away:"Argentina", group:"J" },
+  ]},
+];
+
+const KNOWN_RESULTS = {
+  // Jun 14: Germany 7-1 Curacao, Netherlands 2-2 Japan, Ivory Coast 1-0 Ecuador, Sweden 5-1 Tunisia
+  m02:{homeScore:7,awayScore:1},  m03:{homeScore:2,awayScore:2},
+  m04:{homeScore:1,awayScore:0},  m05:{homeScore:5,awayScore:1},
+  // Jun 15: Spain 0-0 Cape Verde, Belgium 1-1 Egypt, Saudi Arabia 1-1 Uruguay, Iran 2-2 New Zealand
+  m06:{homeScore:0,awayScore:0},  m07:{homeScore:1,awayScore:1},
+  m08:{homeScore:1,awayScore:1},  m09:{homeScore:2,awayScore:2},
+  // Jun 16: France 3-1 Senegal, Iraq 1-4 Norway, Argentina 3-0 Algeria, Austria 3-1 Jordan
+  m11:{homeScore:3,awayScore:1},  m14:{homeScore:1,awayScore:4},
+  m15:{homeScore:3,awayScore:0},  m10:{homeScore:3,awayScore:1},
+  // Jun 17: Portugal 1-1 DR Congo, England 4-2 Croatia, Ghana 1-0 Panama, Uzbekistan 1-3 Colombia
+  m12:{homeScore:1,awayScore:1},  m13:{homeScore:4,awayScore:2},
+  m16:{homeScore:1,awayScore:0},  m17:{homeScore:1,awayScore:3},
+  // Jun 18: Czechia 1-1 South Africa, Switzerland 4-1 Bosnia, Canada 6-0 Qatar, Mexico 1-0 South Korea
+  m18:{homeScore:1,awayScore:1},  m19:{homeScore:4,awayScore:1},
+  m20:{homeScore:6,awayScore:0},  m21:{homeScore:1,awayScore:0},
+  // Jun 19: Turkiye 0-1 Paraguay, USA 2-0 Australia, Scotland 0-1 Morocco, Brazil 3-0 Haiti
+  m22:{homeScore:0,awayScore:1},  m23:{homeScore:2,awayScore:0},
+  m24:{homeScore:0,awayScore:1},  m25:{homeScore:3,awayScore:0},
+  // Jun 20: Tunisia 0-4 Japan, Netherlands 5-1 Sweden, Germany 2-1 Ivory Coast, Ecuador 0-0 Curacao
+  m26:{homeScore:0,awayScore:4},  m28:{homeScore:5,awayScore:1},
+  m27:{homeScore:2,awayScore:1},  m29:{homeScore:0,awayScore:0},
+  // Jun 21: Spain 4-0 Saudi Arabia, Belgium 0-0 Iran, Uruguay 2-2 Cape Verde, Egypt 3-1 New Zealand
+  m30:{homeScore:4,awayScore:0},  m31:{homeScore:0,awayScore:0},
+  m32:{homeScore:2,awayScore:2},  m33:{homeScore:1,awayScore:3},
+  // Jun 22: Argentina 2-0 Austria, France 3-0 Iraq, Norway 3-2 Senegal, Jordan 1-2 Algeria
+  m34:{homeScore:2,awayScore:0},  m35:{homeScore:3,awayScore:0},
+  m36:{homeScore:3,awayScore:2},  m37:{homeScore:1,awayScore:2},
+};
+
+const INITIAL_PICKS = {
+  "2026-06-14":[
+    {matchId:"m02",pick:"home"},{matchId:"m03",pick:"draw"},
+    {matchId:"m04",pick:"away"},{matchId:"m05",pick:"home"},
+  ],
+  "2026-06-15":[
+    {matchId:"m06",pick:"home"},{matchId:"m07",pick:"home"},
+    {matchId:"m08",pick:"away"},{matchId:"m09",pick:"draw"},
+  ],
+  "2026-06-16":[
+    {matchId:"m11",pick:"home"},{matchId:"m14",pick:"away"},
+    {matchId:"m15",pick:"home"},{matchId:"m10",pick:"home"},
+  ],
+  "2026-06-17":[
+    {matchId:"m12",pick:"home"},{matchId:"m13",pick:"home"},
+    {matchId:"m16",pick:"draw"},{matchId:"m17",pick:"away"},
+  ],
+  "2026-06-18":[
+    {matchId:"m18",pick:"home"},{matchId:"m19",pick:"home"},
+    {matchId:"m20",pick:"home"},{matchId:"m21",pick:"home"},
+  ],
+  "2026-06-19":[
+    {matchId:"m22",pick:"draw"},{matchId:"m23",pick:"home"},
+    {matchId:"m24",pick:"away"},{matchId:"m25",pick:"home"},
+  ],
+  "2026-06-20":[
+    {matchId:"m26",pick:"away"},{matchId:"m28",pick:"home"},
+    {matchId:"m27",pick:"home"},{matchId:"m29",pick:"home"},
+  ],
+  "2026-06-21":[
+    {matchId:"m30",pick:"home"},{matchId:"m31",pick:"home"},
+    {matchId:"m32",pick:"home"},{matchId:"m33",pick:"away"},
+  ],
+  "2026-06-22":[
+    {matchId:"m34",pick:"home"},{matchId:"m35",pick:"home"},
+    {matchId:"m36",pick:"home"},{matchId:"m37",pick:"away"},
+  ],
+  "2026-06-23":[
+    {matchId:"m38",pick:"home"},
+    {matchId:"m39",pick:"home"},
+    {matchId:"m40",pick:"away"},
+    {matchId:"m41",pick:"away"},
+  ],
+};
+
+const STAKES = [
+  {round:"Group stage",   games:"48 games",  stake:"$2"},
+  {round:"Round of 32",  games:"32 games",  stake:"$4"},
+  {round:"Round of 16",  games:"16 games",  stake:"$8"},
+  {round:"Quarter-finals",games:"8 games",  stake:"$16"},
+  {round:"Semi-finals",  games:"4 games",   stake:"$32"},
+  {round:"Final",        games:"1 game",    stake:"$64"},
+];
+
+function getMatch(id){for(const d of SCHEDULE)for(const m of d.matches)if(m.id===id)return m;return null;}
+function getDayForMatch(id){return SCHEDULE.find(d=>d.matches.some(m=>m.id===id));}
+function getOutcome(r){if(!r)return null;if(r.homeScore>r.awayScore)return"home";if(r.awayScore>r.homeScore)return"away";return"draw";}
+function pickLabel(pick,m){if(!m)return pick;if(pick==="home")return m.home+" win";if(pick==="away")return m.away+" win";return"Draw";}
+
+function hasKickedOff(m,dayDate){
+  const match=m.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if(!match)return true;
+  let h=parseInt(match[1]);const min=parseInt(match[2]);const pm=/PM/i.test(match[3]);
+  if(pm&&h!==12)h+=12;if(!pm&&h===12)h=0;
+  const now=new Date();
+  const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Vancouver",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(now);
+  const get=t=>parts.find(p=>p.type===t)?.value;
+  const nd=`${get("year")}-${get("month")}-${get("day")}`;
+  const nh=parseInt(get("hour")),nm=parseInt(get("minute"));
+  const kd=m.time.includes("(")?new Date(new Date(dayDate+"T00:00:00").getTime()-86400000).toLocaleDateString("en-CA"):dayDate;
+  if(nd>kd)return true;if(nd<kd)return false;
+  return nh*60+nm>=h*60+min;
+}
+
+function calcStats(picks,results){
+  let dW=0,dL=0,dNet=0,tW=0,tL=0,tNet=0,settled=0,total=0;
+  const chron=[];
+  for(const day of SCHEDULE){
+    const dp=picks[day.date]||[];const isT=day.picker==="Thomas";
+    for(const p of dp){
+      const r=results[p.matchId];total++;
+      if(!r)continue;
+      const ok=getOutcome(r)===p.pick;settled++;
+      if(isT){if(ok){tW++;tNet+=2;}else{tL++;tNet-=2;}}
+      else{if(ok){dW++;dNet+=2;}else{dL++;dNet-=2;}}
+      chron.push(ok?(isT?"Thomas":"David"):(isT?"David":"Thomas"));
+    }
+  }
+  let so=null,sc=0;
+  for(let i=chron.length-1;i>=0;i--){
+    const w=chron[i];if(so===null){so=w;sc=1;}else if(w===so)sc++;else break;
+  }
+  const diff=dNet-tNet;
+  return{dW,dL,dNet,tW,tL,tNet,settled,total,
+    leader:diff>0?"David":diff<0?"Thomas":null,lead:Math.abs(diff),
+    streakOwner:so,streakCount:sc};
+}
+
+function App(){
+  const [picks,setPicks]=useState(INITIAL_PICKS);
+  const [results,setResults]=useState(KNOWN_RESULTS);
+  const [tab,setTab]=useState("today");
+  const [pf,setPf]=useState({picker:"David",dayDate:TODAY,matchId:"",pick:""});
+  const [msg,setMsg]=useState({text:"",type:""});
+  const [fetching,setFetching]=useState(false);
+  const [saving,setSaving]=useState(false);
+  const [lastSync,setLastSync]=useState(null);
+  const pollRef=useRef(null);
+
+  function flash(t,type="ok",long=false){setMsg({text:t,type});setTimeout(()=>setMsg({text:"",type:""}),long?7000:3000);}
+
+  async function loadFromDB(){
+    try{
+      const{data,error}=await sb.from("pool_data").select("key,value");
+      if(error)throw error;
+      const pr=data.find(r=>r.key==="picks");
+      const rr=data.find(r=>r.key==="results");
+      if(pr?.value&&Object.keys(pr.value).length>0)setPicks({...INITIAL_PICKS,...pr.value});
+      if(rr?.value){
+        const merged={...rr.value,...KNOWN_RESULTS};
+        for(const id of Object.keys(merged)){
+          if(KNOWN_RESULTS[id])continue;
+          const m=getMatch(id);const day=getDayForMatch(id);
+          if(m&&day&&!hasKickedOff(m,day.date))delete merged[id];
+        }
+        setResults(merged);
+      }
+      setLastSync(new Date());
+    }catch(e){console.error("DB error",e);}
+  }
+
+  useEffect(()=>{
+    loadFromDB();
+    pollRef.current=setInterval(loadFromDB,30000);
+    return()=>clearInterval(pollRef.current);
+  },[]);
+
+  async function savePicksToDB(np){
+    setSaving(true);
+    try{
+      const{error}=await sb.from("pool_data").upsert({key:"picks",value:np,updated_at:new Date().toISOString()});
+      if(error)throw error;setLastSync(new Date());
+    }catch(e){flash("Saved locally, sync failed","err");}
+    finally{setSaving(false);}
+  }
+
+  async function saveResultsToDB(nr){
+    try{
+      await sb.from("pool_data").upsert({key:"results",value:nr,updated_at:new Date().toISOString()});
+      setLastSync(new Date());
+    }catch(e){console.error("Results sync error",e);}
+  }
+
+  function submitPick(){
+    if(!pf.matchId||!pf.pick)return flash("Select a match and outcome","err");
+    const np={...picks};
+    const dp=[...(np[pf.dayDate]||[])];
+    const i=dp.findIndex(p=>p.matchId===pf.matchId);
+    if(i>-1)dp[i]={matchId:pf.matchId,pick:pf.pick};else dp.push({matchId:pf.matchId,pick:pf.pick});
+    np[pf.dayDate]=dp;setPicks(np);savePicksToDB(np);
+    flash("Pick saved");setPf(f=>({...f,matchId:"",pick:""}));
+  }
+
+  const fetchScores=useCallback(async()=>{
+    setFetching(true);
+    try{
+      const matchesToCheck=SCHEDULE.filter(d=>d.date<=TODAY).flatMap(d=>d.matches);
+      const knownStr=Object.entries(KNOWN_RESULTS).map(([id,r])=>{const m=getMatch(id);return m?`${id} ${m.home} ${r.homeScore}-${r.awayScore} ${m.away}`:""}).filter(Boolean).join("; ");
+      const checkStr=matchesToCheck.map(m=>`${m.id} ${m.home} vs ${m.away}`).join("; ");
+
+      // Robust prompt: explicit JSON schema, no markdown, example included
+      const prompt=`You are a sports data assistant. Today is ${TODAY} Pacific Time. The FIFA World Cup 2026 is in progress.
+
+Search the web for the latest final scores for these matches and return ONLY a raw JSON object.
+
+RULES:
+- Return raw JSON only. No markdown. No backticks. No explanation. No preamble.
+- Only include matches that have fully finished (full time).
+- For each finished match include homeScore, awayScore, and winner ("home", "away", or "draw").
+- The winner field must be consistent with the scores: if homeScore > awayScore then winner must be "home", if awayScore > homeScore then "away", if equal then "draw".
+
+ALREADY KNOWN RESULTS (include these exactly as given):
+${knownStr}
+
+CHECK THESE FOR NEW RESULTS:
+${checkStr}
+
+EXAMPLE OUTPUT FORMAT:
+{"m02":{"homeScore":7,"awayScore":1,"winner":"home"},"m03":{"homeScore":2,"awayScore":2,"winner":"draw"}}
+
+Return only the JSON object now:`;
+
+      const res=await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-6",max_tokens:1000,
+          tools:[{type:"web_search_20250305",name:"web_search"}],
+          messages:[{role:"user",content:prompt}]
+        })
+      });
+
+      if(!res.ok){flash(`API error: ${res.status}`,"err");return;}
+      const json=await res.json();
+      const textBlocks=(json.content||[]).filter(b=>b.type==="text").map(b=>b.text);
+      const fullText=textBlocks.join("");
+
+      // Try multiple JSON extraction strategies
+      let raw=null;
+      // Strategy 1: find outermost { }
+      const s=fullText.indexOf("{"),e=fullText.lastIndexOf("}");
+      if(s!==-1&&e>s){
+        try{raw=JSON.parse(fullText.slice(s,e+1));}catch(_){}
+      }
+      // Strategy 2: strip markdown fences and retry
+      if(!raw){
+        const stripped=fullText.replace(/```json|```/g,"").trim();
+        const s2=stripped.indexOf("{"),e2=stripped.lastIndexOf("}");
+        if(s2!==-1&&e2>s2){try{raw=JSON.parse(stripped.slice(s2,e2+1));}catch(_){}}
+      }
+
+      if(!raw){flash("Could not parse scores. Try again.","err");return;}
+
+      const validated={};const flagged=[];let added=0;
+      for(const[id,r]of Object.entries(raw)){
+        if(typeof r.homeScore!=="number"||typeof r.awayScore!=="number")continue;
+        const m=getMatch(id);const day=getDayForMatch(id);
+        if(!m||!day)continue;
+        if(!hasKickedOff(m,day.date))continue; // reject pre-kickoff
+        const implied=r.homeScore>r.awayScore?"home":r.awayScore>r.homeScore?"away":"draw";
+        if(r.winner&&r.winner!==implied){flagged.push(`${id}(score says ${implied}, winner says ${r.winner})`);continue;}
+        validated[id]={homeScore:r.homeScore,awayScore:r.awayScore};
+        added++;
+      }
+      const nr={...results,...validated,...KNOWN_RESULTS};
+      setResults(nr);saveResultsToDB(nr);
+      const msgs=[];
+      if(added>0)msgs.push(`${added} score${added>1?"s":""} updated`);
+      if(flagged.length>0)msgs.push(`${flagged.length} flagged: ${flagged.join(", ")}`);
+      flash(msgs.length>0?msgs.join(". "):"No new scores found", flagged.length>0?"err":"ok", flagged.length>0);
+    }catch(e){
+      console.error("fetchScores error",e);
+      flash("Fetch failed: "+e.message,"err");
+    }
+    finally{setFetching(false);}
+  },[results]);
+
+  function exportResults(){
+    const S=calcStats(picks,results);
+    const lines=["World Cup 2026 Pool, David vs Thomas","Export: "+new Date().toLocaleDateString("en-CA",{timeZone:"America/Vancouver"}),""];
+    lines.push("STANDINGS");
+    lines.push(`Thomas: ${S.tW}W ${S.tL}L, net ${S.tNet>=0?"+$"+S.tNet:"-$"+Math.abs(S.tNet)}`);
+    lines.push(`David:  ${S.dW}W ${S.dL}L, net ${S.dNet>=0?"+$"+S.dNet:"-$"+Math.abs(S.dNet)}`);
+    lines.push(S.leader?`${S.leader} leads by $${S.lead}`:"All square");
+    lines.push("");
+    for(const day of SCHEDULE){
+      const dp=picks[day.date]||[];
+      if(!dp.length)continue;
+      lines.push(`${day.day} (${day.picker})`);
+      for(const p of dp){
+        const m=getMatch(p.matchId);if(!m)continue;
+        const r=results[p.matchId];
+        const outcome=r?getOutcome(r)===p.pick?"WIN":"LOSS":"pending";
+        const score=r?`${r.homeScore}-${r.awayScore}`:"pending";
+        const pickStr=pickLabel(p.pick,m);
+        lines.push(`  ${m.home} vs ${m.away}: ${pickStr} | ${score} | ${outcome}`);
+      }
+      lines.push("");
+    }
+    const blob=new Blob([lines.join("\n")],{type:"text/plain"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;a.download=`WC_pool_${TODAY}.txt`;a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const S=calcStats(picks,results);
+  const todayDay=SCHEDULE.find(d=>d.date===TODAY);
+  const completedDays=SCHEDULE.filter(d=>d.date<TODAY).slice().reverse();
+  const upcomingDays=SCHEDULE.filter(d=>d.date>TODAY);
+  const selMatches=SCHEDULE.find(s=>s.date===pf.dayDate)?.matches||[];
+  const selMatch=pf.matchId?getMatch(pf.matchId):null;
+  function ns(n){return n>=0?"+$"+n:"-$"+Math.abs(n);}
+  function nc(n){return n>0?"#2a7a4b":n<0?"#c44":"#f5f0e8";}
+  const syncStr=lastSync?lastSync.toLocaleTimeString("en-CA",{timeZone:"America/Vancouver",hour:"2-digit",minute:"2-digit"}):null;
+
+  function MatchRow({m,dayDate}){
+    const r=results[m.id];
+    const p=(picks[dayDate]||[]).find(pk=>pk.matchId===m.id);
+    const outcome=getOutcome(r);
+    const correct=p&&outcome&&outcome===p.pick;
+    const wrong=p&&outcome&&outcome!==p.pick;
+    const isToday=dayDate===TODAY;
+    const started=hasKickedOff(m,dayDate);
+    return(
+      <div className="mrow">
+        <div>
+          <div className="mteams">{m.home} vs {m.away}</div>
+          <div className="mmeta">Grp {m.group} · {m.time}{r&&<span style={{marginLeft:4}}>· {r.homeScore}-{r.awayScore}</span>}</div>
+          {p&&<div className={`mpick ${correct?"cv":wrong?"wv":"pv"}`}>Pick: {pickLabel(p.pick,m)}{correct?" ✓":wrong?" ✗":""}</div>}
+        </div>
+        <div>
+          {correct&&<span className="chip cw">+$2</span>}
+          {wrong&&<span className="chip cl">-$2</span>}
+          {p&&!r&&isToday&&started&&<span className="chip clive">Live</span>}
+          {p&&!r&&!isToday&&<span className="chip cp">TBD</span>}
+          {!p&&r&&<span style={{fontSize:10,color:"#6b8a72"}}>{r.homeScore}-{r.awayScore}</span>}
+        </div>
+      </div>
+    );
+  }
+
+  function DayBlock({day,showPicker=true}){
+    return(
+      <div className="day-sec">
+        <div className="day-hdr">
+          <span className="day-date">{day.day}</span>
+          {showPicker&&<span className="day-picker">Picker: <span>{day.picker}</span></span>}
+        </div>
+        {day.matches.map(m=><MatchRow key={m.id} m={m} dayDate={day.date}/>)}
+      </div>
+    );
+  }
+
+  const TABS = ["today","upcoming","completed","pick","stakes"];
+
+  return(
+    <div className="app">
+      <div className="hdr">
+        <h1>World Cup 2026 Pool</h1>
+        <span className="sub">David vs Thomas</span>
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          {msg.text&&<span className={msg.type==="err"?"err":"ok"} style={{fontSize:11}}>{msg.text}</span>}
+          <span className={`sync${syncStr?" live":""}`}>{syncStr?"⬤ "+syncStr:"Connecting..."}</span>
+          <button className="btn-ghost" onClick={exportResults} style={{padding:"5px 10px",fontSize:11}}>Export</button>
+          <button className="btn" onClick={fetchScores} disabled={fetching} style={{padding:"5px 10px",fontSize:11}}>
+            {fetching?<span className="spinner"></span>:"Sync Scores"}
+          </button>
+        </div>
+      </div>
+
+      <div className="ban">
+        {[
+          {label:"Winnings",value:S.leader?ns(S.lead):"$0",color:S.leader?"#2a7a4b":"#f5f0e8",sub:S.leader?S.leader+" leads":"All square",lead:!!S.leader},
+          {label:"David",value:ns(S.dNet),color:nc(S.dNet),sub:`${S.dW}W ${S.dL}L`},
+          {label:"Thomas",value:ns(S.tNet),color:nc(S.tNet),sub:`${S.tW}W ${S.tL}L`},
+          {label:"Streak",value:S.streakCount>0?S.streakCount+"W":"--",color:S.streakCount>0?"#2a7a4b":"#f5f0e8",sub:S.streakCount>0?S.streakOwner:`${S.settled}/${S.total} done`,lead:S.streakCount>0},
+        ].map(c=>(
+          <div key={c.label} className="bc">
+            <div className="bl">{c.label}</div>
+            <div className="bv" style={{color:c.color}}>{c.value}</div>
+            <div className={`bs${c.lead?" lead":""}`}>{c.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="panel">
+        <div className="tab-row">
+          {TABS.map(t=>(
+            <button key={t} className={`rtab${tab===t?" on":""}`} onClick={()=>setTab(t)}>
+              {t==="pick"?"Submit Pick":t.charAt(0).toUpperCase()+t.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        <div className="pb">
+
+          {tab==="today"&&(todayDay
+            ?<><div className="today-lbl">Today's picker: <b>{todayDay.picker}</b></div><DayBlock day={todayDay} showPicker={false}/></>
+            :<div className="empty">No matches today.</div>)}
+
+          {tab==="upcoming"&&(upcomingDays.length>0
+            ?upcomingDays.map(day=>(
+              <div key={day.date} className="day-sec">
+                <div className="day-hdr">
+                  <span className="day-date">{day.day}</span>
+                  <span className="day-picker">Picker: <span>{day.picker}</span></span>
+                </div>
+                {day.matches.map(m=>{
+                  const p=(picks[day.date]||[]).find(pk=>pk.matchId===m.id);
+                  return(
+                    <div key={m.id} className="srow">
+                      <div>
+                        <div style={{fontSize:12,color:"#f5f0e8"}}>{m.home} vs {m.away}</div>
+                        <div style={{fontSize:10,color:"#6b8a72",marginTop:1}}>{m.time}</div>
+                        {p&&<div style={{fontSize:11,color:"#8a9e8f",marginTop:1}}>Pick: {pickLabel(p.pick,m)}</div>}
+                      </div>
+                      <span className="sg">Grp {m.group}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))
+            :<div className="empty">No upcoming days.</div>)}
+
+          {tab==="completed"&&(completedDays.length>0
+            ?completedDays.map(d=><DayBlock key={d.date} day={d}/>)
+            :<div className="empty">No completed days yet.</div>)}
+
+          {tab==="pick"&&(
+            <div>
+              <div className="fr">
+                <div className="fl">Picker</div>
+                <select value={pf.picker} onChange={e=>setPf(f=>({...f,picker:e.target.value}))}>
+                  <option>David</option><option>Thomas</option>
+                </select>
+              </div>
+              <div className="fr">
+                <div className="fl">Match day</div>
+                <select value={pf.dayDate} onChange={e=>setPf(f=>({...f,dayDate:e.target.value,matchId:"",pick:""}))}>
+                  {SCHEDULE.map(s=><option key={s.date} value={s.date}>{s.day}</option>)}
+                </select>
+              </div>
+              <div className="fr">
+                <div className="fl">Match</div>
+                <select value={pf.matchId} onChange={e=>setPf(f=>({...f,matchId:e.target.value,pick:""}))}>
+                  <option value="">Select match...</option>
+                  {selMatches.map(m=><option key={m.id} value={m.id}>{m.home} vs {m.away}</option>)}
+                </select>
+              </div>
+              {selMatch&&(
+                <div className="fr">
+                  <div className="fl">Pick</div>
+                  <div className="toggle">
+                    {[["home",selMatch.home],["draw","Draw"],["away",selMatch.away]].map(([v,l])=>(
+                      <div key={v} className={`topt${pf.pick===v?" on":""}`} onClick={()=>setPf(f=>({...f,pick:v}))}>{l}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="fa">
+                <button className="btn" onClick={submitPick} disabled={!pf.matchId||!pf.pick||saving}>
+                  {saving?<span className="spinner"></span>:"Save pick"}
+                </button>
+                {msg.text&&<span className={msg.type==="err"?"err":"ok"}>{msg.text}</span>}
+              </div>
+              <div className="divider">
+                <div className="fl">Manual sync</div>
+                <div className="fa">
+                  <button className="btn-ghost" onClick={loadFromDB}>Pull latest</button>
+                  <span className="ok" style={{fontSize:10}}>{syncStr?"Last sync "+syncStr:""}</span>
+                </div>
+                <div className="note">App auto-syncs every 30 seconds. Use Sync Scores in the header to fetch latest match results.</div>
+              </div>
+            </div>
+          )}
+
+          {tab==="stakes"&&(
+            <div>
+              <table className="stakes-table">
+                <thead>
+                  <tr>
+                    <th>Round</th>
+                    <th>Games</th>
+                    <th>Stake per game</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {STAKES.map(s=>(
+                    <tr key={s.round}>
+                      <td>{s.round}</td>
+                      <td style={{color:"#8a9e8f"}}>{s.games}</td>
+                      <td className="amt">{s.stake}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="stakes-note">
+                Each day one player picks all of that day's matches. Every pick must be exactly right: a win pick only pays if that team wins outright, a draw pick only pays if the match ends level. Right pick earns the stake. Wrong pick pays the other player the same amount. Stakes double each round from group stage through to the final.
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.render(<App/>,document.getElementById("root"));
+</script>
+</body>
+</html>
