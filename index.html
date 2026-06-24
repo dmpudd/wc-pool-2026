@@ -320,6 +320,7 @@ function App(){
   const [results,setResults]=useState(KNOWN_RESULTS);
   const [tab,setTab]=useState("today");
   const [pf,setPf]=useState({picker:"David",dayDate:TODAY,matchId:"",pick:""});
+  const [sf,setSf]=useState({dayDate:TODAY,matchId:"",homeScore:"",awayScore:""});
   const [msg,setMsg]=useState({text:"",type:""});
   const [fetching,setFetching]=useState(false);
   const [saving,setSaving]=useState(false);
@@ -380,57 +381,95 @@ function App(){
     flash("Pick saved");setPf(f=>({...f,matchId:"",pick:""}));
   }
 
+  function submitScore(){
+    const hs=parseInt(sf.homeScore);const as=parseInt(sf.awayScore);
+    if(!sf.matchId)return flash("Select a match","err");
+    if(isNaN(hs)||isNaN(as)||hs<0||as<0)return flash("Enter valid scores (0 or more)","err");
+    const nr={...results,...KNOWN_RESULTS,[sf.matchId]:{homeScore:hs,awayScore:as}};
+    setResults(nr);saveResultsToDB(nr);
+    flash("Score saved");
+    setSf(f=>({...f,matchId:"",homeScore:"",awayScore:""}));
+  }
+
   const fetchScores=useCallback(async()=>{
     setFetching(true);
     try{
-      // Only check matches on or before today that aren't already hard-coded
-      const matchesToCheck=SCHEDULE
-        .filter(d=>d.date<=TODAY)
-        .flatMap(d=>d.matches)
-        .filter(m=>!KNOWN_RESULTS[m.id])
-        .map(m=>({id:m.id,home:m.home,away:m.away}));
+      const matchesToCheck=SCHEDULE.filter(d=>d.date<=TODAY).flatMap(d=>d.matches);
+      const knownStr=Object.entries(KNOWN_RESULTS).map(([id,r])=>{const m=getMatch(id);return m?`${id} ${m.home} ${r.homeScore}-${r.awayScore} ${m.away}`:""}).filter(Boolean).join("; ");
+      const checkStr=matchesToCheck.map(m=>`${m.id} ${m.home} vs ${m.away}`).join("; ");
 
-      if(matchesToCheck.length===0){
-        flash("All scores already known","ok");
-        return;
-      }
+      // Robust prompt: explicit JSON schema, no markdown, example included
+      const prompt=`You are a sports data assistant. Today is ${TODAY} Pacific Time. The FIFA World Cup 2026 is in progress.
 
-      // Call the Supabase Edge Function which hits the free ESPN API server-side
-      const res=await fetch(`${SUPABASE_URL}/functions/v1/fetch-scores`,{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json",
-          "Authorization":`Bearer ${SUPABASE_KEY}`,
-        },
-        body:JSON.stringify({matches:matchesToCheck}),
+Search the web for the latest final scores for these matches and return ONLY a raw JSON object.
+
+RULES:
+- Return raw JSON only. No markdown. No backticks. No explanation. No preamble.
+- Only include matches that have fully finished (full time).
+- For each finished match include homeScore, awayScore, and winner ("home", "away", or "draw").
+- The winner field must be consistent with the scores: if homeScore > awayScore then winner must be "home", if awayScore > homeScore then "away", if equal then "draw".
+
+ALREADY KNOWN RESULTS (include these exactly as given):
+${knownStr}
+
+CHECK THESE FOR NEW RESULTS:
+${checkStr}
+
+EXAMPLE OUTPUT FORMAT:
+{"m02":{"homeScore":7,"awayScore":1,"winner":"home"},"m03":{"homeScore":2,"awayScore":2,"winner":"draw"}}
+
+Return only the JSON object now:`;
+
+      const res=await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-6",max_tokens:1000,
+          tools:[{type:"web_search_20250305",name:"web_search"}],
+          messages:[{role:"user",content:prompt}]
+        })
       });
 
-      if(!res.ok){
-        const errText=await res.text();
-        flash(`Sync error ${res.status}: ${errText.slice(0,80)}`,"err",true);
-        return;
+      if(!res.ok){flash(`API error: ${res.status}`,"err");return;}
+      const json=await res.json();
+      const textBlocks=(json.content||[]).filter(b=>b.type==="text").map(b=>b.text);
+      const fullText=textBlocks.join("");
+
+      // Try multiple JSON extraction strategies
+      let raw=null;
+      // Strategy 1: find outermost { }
+      const s=fullText.indexOf("{"),e=fullText.lastIndexOf("}");
+      if(s!==-1&&e>s){
+        try{raw=JSON.parse(fullText.slice(s,e+1));}catch(_){}
+      }
+      // Strategy 2: strip markdown fences and retry
+      if(!raw){
+        const stripped=fullText.replace(/```json|```/g,"").trim();
+        const s2=stripped.indexOf("{"),e2=stripped.lastIndexOf("}");
+        if(s2!==-1&&e2>s2){try{raw=JSON.parse(stripped.slice(s2,e2+1));}catch(_){}}
       }
 
-      const raw=await res.json();
-      if(raw.error){flash("Sync failed: "+raw.error,"err",true);return;}
+      if(!raw){flash("Could not parse scores. Try again.","err");return;}
 
-      const validated={};let added=0;
+      const validated={};const flagged=[];let added=0;
       for(const[id,r]of Object.entries(raw)){
         if(typeof r.homeScore!=="number"||typeof r.awayScore!=="number")continue;
         const m=getMatch(id);const day=getDayForMatch(id);
         if(!m||!day)continue;
-        if(!hasKickedOff(m,day.date))continue;
+        if(!hasKickedOff(m,day.date))continue; // reject pre-kickoff
+        const implied=r.homeScore>r.awayScore?"home":r.awayScore>r.homeScore?"away":"draw";
+        if(r.winner&&r.winner!==implied){flagged.push(`${id}(score says ${implied}, winner says ${r.winner})`);continue;}
         validated[id]={homeScore:r.homeScore,awayScore:r.awayScore};
         added++;
       }
-
       const nr={...results,...validated,...KNOWN_RESULTS};
-      setResults(nr);
-      saveResultsToDB(nr);
-      flash(added>0?`${added} score${added>1?"s":""} updated`:"No new finished scores found","ok");
+      setResults(nr);saveResultsToDB(nr);
+      const msgs=[];
+      if(added>0)msgs.push(`${added} score${added>1?"s":""} updated`);
+      if(flagged.length>0)msgs.push(`${flagged.length} flagged: ${flagged.join(", ")}`);
+      flash(msgs.length>0?msgs.join(". "):"No new scores found", flagged.length>0?"err":"ok", flagged.length>0);
     }catch(e){
       console.error("fetchScores error",e);
-      flash("Fetch failed: "+e.message,"err",true);
+      flash("Fetch failed: "+e.message,"err");
     }
     finally{setFetching(false);}
   },[results]);
@@ -631,6 +670,43 @@ function App(){
                   <span className="ok" style={{fontSize:10}}>{syncStr?"Last sync "+syncStr:""}</span>
                 </div>
                 <div className="note">App auto-syncs every 30 seconds. Use Sync Scores in the header to fetch latest match results.</div>
+              </div>
+              <div className="divider">
+                <div className="fl">Enter score manually</div>
+                <div className="fr" style={{marginTop:6}}>
+                  <select value={sf.dayDate} onChange={e=>setSf(f=>({...f,dayDate:e.target.value,matchId:""}))}>
+                    {SCHEDULE.map(s=><option key={s.date} value={s.date}>{s.day}</option>)}
+                  </select>
+                </div>
+                <div className="fr">
+                  <select value={sf.matchId} onChange={e=>setSf(f=>({...f,matchId:e.target.value}))}>
+                    <option value="">Select match...</option>
+                    {(SCHEDULE.find(s=>s.date===sf.dayDate)?.matches||[]).map(m=>(
+                      <option key={m.id} value={m.id}>{m.home} vs {m.away}</option>
+                    ))}
+                  </select>
+                </div>
+                {sf.matchId&&(
+                  <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+                    <div style={{flex:1}}>
+                      <div className="fl">{getMatch(sf.matchId)?.home}</div>
+                      <input type="number" min="0" max="20" value={sf.homeScore}
+                        onChange={e=>setSf(f=>({...f,homeScore:e.target.value}))}
+                        style={{width:"100%",background:"#0f1a14",border:"0.5px solid #2d4a33",borderRadius:6,color:"#f5f0e8",fontSize:14,padding:"7px 9px",textAlign:"center"}}/>
+                    </div>
+                    <div style={{color:"#6b8a72",fontSize:14,paddingTop:18}}>–</div>
+                    <div style={{flex:1}}>
+                      <div className="fl">{getMatch(sf.matchId)?.away}</div>
+                      <input type="number" min="0" max="20" value={sf.awayScore}
+                        onChange={e=>setSf(f=>({...f,awayScore:e.target.value}))}
+                        style={{width:"100%",background:"#0f1a14",border:"0.5px solid #2d4a33",borderRadius:6,color:"#f5f0e8",fontSize:14,padding:"7px 9px",textAlign:"center"}}/>
+                    </div>
+                  </div>
+                )}
+                <div className="fa">
+                  <button className="btn" onClick={submitScore} disabled={!sf.matchId||sf.homeScore===""||sf.awayScore===""}>Save score</button>
+                </div>
+                <div className="note">Use this if Sync Scores misses a result. Saves to Supabase instantly so both players see it.</div>
               </div>
             </div>
           )}
