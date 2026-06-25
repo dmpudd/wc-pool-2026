@@ -68,6 +68,7 @@ select:focus{border-color:#2a7a4b;}
 .note{font-size:10px;color:#6b8a72;margin-top:5px;}
 .spinner{display:inline-block;width:11px;height:11px;border:1.5px solid #2d4a33;border-top-color:#2a7a4b;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;}
 @keyframes spin{to{transform:rotate(360deg);}}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
 .today-lbl{font-size:12px;color:#8a9e8f;margin-bottom:8px;}
 .today-lbl b{color:#f5f0e8;}
 .empty{font-size:12px;color:#6b8a72;padding:4px 0;}
@@ -318,9 +319,9 @@ function calcStats(picks,results){
 function App(){
   const [picks,setPicks]=useState(INITIAL_PICKS);
   const [results,setResults]=useState(KNOWN_RESULTS);
+  const [liveScores,setLiveScores]=useState({}); // in-progress only, never persisted
   const [tab,setTab]=useState("today");
   const [pf,setPf]=useState({picker:"David",dayDate:TODAY,matchId:"",pick:""});
-  const [sf,setSf]=useState({dayDate:TODAY,matchId:"",homeScore:"",awayScore:""});
   const [msg,setMsg]=useState({text:"",type:""});
   const [fetching,setFetching]=useState(false);
   const [saving,setSaving]=useState(false);
@@ -381,42 +382,101 @@ function App(){
     flash("Pick saved");setPf(f=>({...f,matchId:"",pick:""}));
   }
 
-  function submitScore(){
-    const hs=parseInt(sf.homeScore);const as=parseInt(sf.awayScore);
-    if(!sf.matchId)return flash("Select a match","err");
-    if(isNaN(hs)||isNaN(as)||hs<0||as<0)return flash("Enter valid scores (0 or more)","err");
-    const nr={...results,...KNOWN_RESULTS,[sf.matchId]:{homeScore:hs,awayScore:as}};
-    setResults(nr);saveResultsToDB(nr);
-    flash("Score saved");
-    setSf(f=>({...f,matchId:"",homeScore:"",awayScore:""}));
-  }
-
   const fetchScores=useCallback(async()=>{
     setFetching(true);
     try{
+      // ── Name alias map: our app name → all known alternative spellings ────────
+      // Used both to enrich the AI prompt AND to resolve team names in the response.
+      // Sources checked: ESPN API, Yahoo Sports, FOX Sports, Flashscore, LiveScore, UEFA, FIFA.
+      // Used both to enrich the AI prompt AND to resolve any team-name keys in the response.
+      const NAME_ALIASES={
+        // ESPN: "Bosnia-Herzegovina" | Yahoo/UEFA: "Bosnia and Herzegovina"
+        "Bosnia":       ["Bosnia-Herzegovina","Bosnia and Herzegovina","Bosnia & Herzegovina","Bosnia-Herz","BIH"],
+        // ESPN: "Congo DR" | Flashscore: "D.R. Congo" | FIFA official: "DR Congo"
+        "DR Congo":     ["Congo DR","D.R. Congo","Democratic Republic of Congo","Democratic Republic of the Congo","DRC","Congo, DR","Congo (DR)"],
+        // ESPN: "Cape Verde Islands" | FIFA/Yahoo: "Cabo Verde"
+        "Cape Verde":   ["Cape Verde Islands","Cabo Verde"],
+        // ESPN/Yahoo use accent: "Curaçao" | FOX/Flashscore drop it: "Curacao"
+        "Curacao":      ["Cura\u00e7ao"],
+        // FIFA official: "Côte d'Ivoire" | English press: "Ivory Coast"
+        "Ivory Coast":  ["C\u00f4te d'Ivoire","Cote d'Ivoire","Cote dIvoire","C\u00f4te d\u2019Ivoire","CIV"],
+        // FIFA official since 2022: "Türkiye" | legacy/Flashscore: "Turkey"
+        "Turkiye":      ["T\u00fcrkiye","Turkey","TUR"],
+        // FOX Sports: "United States" | most others: "USA"
+        "USA":          ["United States","United States of America","U.S.A.","US","USMNT"],
+        // Yahoo/UEFA: "Korea Republic" | FIFA: "Republic of Korea"
+        "South Korea":  ["Korea Republic","Republic of Korea","Korea","KOR"],
+        // Some sources still use pre-2016 name "Czech Republic"
+        "Czechia":      ["Czech Republic","CZE"],
+        // NZ abbreviation sometimes used
+        "New Zealand":  ["NZ","NZL"],
+        // KSA abbreviation common in betting/stats contexts
+        "Saudi Arabia": ["KSA","Saudi"],
+        // RSA abbreviation used by some sources
+        "South Africa": ["RSA"],
+      };
+
+      // Build a normaliser: any alias or known variant → our canonical app name
+      const normTeam=(name)=>{
+        const lo=name.toLowerCase().trim();
+        // Direct match first
+        for(const day of SCHEDULE)
+          for(const m of day.matches){
+            if(m.home.toLowerCase()===lo)return m.home;
+            if(m.away.toLowerCase()===lo)return m.away;
+          }
+        // Alias match
+        for(const[canon,aliases]of Object.entries(NAME_ALIASES))
+          if(aliases.some(a=>a.toLowerCase()===lo))return canon;
+        return name; // unchanged if unrecognised
+      };
+
+      // Build a lookup: sorted canonical pair key → match id
+      // Allows the AI to return team names (not IDs) and we still resolve correctly
+      const pairToId={};
+      for(const day of SCHEDULE)
+        for(const m of day.matches){
+          const key=[m.home,m.away].map(n=>n.toLowerCase()).sort().join("|");
+          pairToId[key]=m.id;
+        }
+
       const matchesToCheck=SCHEDULE.filter(d=>d.date<=TODAY).flatMap(d=>d.matches);
-      const knownStr=Object.entries(KNOWN_RESULTS).map(([id,r])=>{const m=getMatch(id);return m?`${id} ${m.home} ${r.homeScore}-${r.awayScore} ${m.away}`:""}).filter(Boolean).join("; ");
+      const knownStr=Object.entries(KNOWN_RESULTS).map(([id,r])=>{
+        const m=getMatch(id);return m?`${id} ${m.home} ${r.homeScore}-${r.awayScore} ${m.away}`:"";
+      }).filter(Boolean).join("; ");
+
+      // Build the check list with aliases so the AI can match regardless of how media reports the name
+      const aliasHint=Object.entries(NAME_ALIASES)
+        .map(([canon,alts])=>`"${canon}" (also called: ${alts.join(", ")})`)
+        .join("; ");
+
       const checkStr=matchesToCheck.map(m=>`${m.id} ${m.home} vs ${m.away}`).join("; ");
 
-      // Robust prompt: explicit JSON schema, no markdown, example included
       const prompt=`You are a sports data assistant. Today is ${TODAY} Pacific Time. The FIFA World Cup 2026 is in progress.
 
-Search the web for the latest final scores for these matches and return ONLY a raw JSON object.
+Search the web for the latest scores for these matches and return ONLY a raw JSON object.
+
+IMPORTANT TEAM NAME ALIASES - these teams appear under different names in media:
+${aliasHint}
 
 RULES:
 - Return raw JSON only. No markdown. No backticks. No explanation. No preamble.
-- Only include matches that have fully finished (full time).
-- For each finished match include homeScore, awayScore, and winner ("home", "away", or "draw").
-- The winner field must be consistent with the scores: if homeScore > awayScore then winner must be "home", if awayScore > homeScore then "away", if equal then "draw".
+- Keys must be the match IDs exactly as given (e.g. "m45"), not team names.
+- Include ALL matches that have kicked off: both finished AND currently in progress.
+- For each match include: homeScore, awayScore, status ("final", "live", or "upcoming"), and for live matches also minute (e.g. 67).
+- For finished matches also include winner ("home", "away", or "draw") consistent with the scores.
+- homeScore is the score for the FIRST-NAMED team in each match listing below.
+- If a team is listed as e.g. "Bosnia" but you find it under "Bosnia-Herzegovina", they are the same team — use the match ID.
+- Do NOT include upcoming matches that have not yet kicked off.
 
-ALREADY KNOWN RESULTS (include these exactly as given):
+ALREADY KNOWN FINAL RESULTS (include these exactly as given, status "final"):
 ${knownStr}
 
-CHECK THESE FOR NEW RESULTS:
+CHECK THESE FOR SCORES (format: matchId home vs away):
 ${checkStr}
 
-EXAMPLE OUTPUT FORMAT:
-{"m02":{"homeScore":7,"awayScore":1,"winner":"home"},"m03":{"homeScore":2,"awayScore":2,"winner":"draw"}}
+EXAMPLE OUTPUT (mix of final and live):
+{"m02":{"homeScore":7,"awayScore":1,"status":"final","winner":"home"},"m50":{"homeScore":1,"awayScore":0,"status":"live","minute":34}}
 
 Return only the JSON object now:`;
 
@@ -434,39 +494,63 @@ Return only the JSON object now:`;
       const textBlocks=(json.content||[]).filter(b=>b.type==="text").map(b=>b.text);
       const fullText=textBlocks.join("");
 
-      // Try multiple JSON extraction strategies
+      // JSON extraction: try raw parse, then strip fences
       let raw=null;
-      // Strategy 1: find outermost { }
       const s=fullText.indexOf("{"),e=fullText.lastIndexOf("}");
-      if(s!==-1&&e>s){
-        try{raw=JSON.parse(fullText.slice(s,e+1));}catch(_){}
-      }
-      // Strategy 2: strip markdown fences and retry
+      if(s!==-1&&e>s){try{raw=JSON.parse(fullText.slice(s,e+1));}catch(_){}}
       if(!raw){
         const stripped=fullText.replace(/```json|```/g,"").trim();
         const s2=stripped.indexOf("{"),e2=stripped.lastIndexOf("}");
         if(s2!==-1&&e2>s2){try{raw=JSON.parse(stripped.slice(s2,e2+1));}catch(_){}}
       }
-
       if(!raw){flash("Could not parse scores. Try again.","err");return;}
 
-      const validated={};const flagged=[];let added=0;
-      for(const[id,r]of Object.entries(raw)){
+      const validated={};const newLive={};const flagged=[];let added=0,liveCount=0;
+      for(let[id,r]of Object.entries(raw)){
         if(typeof r.homeScore!=="number"||typeof r.awayScore!=="number")continue;
+
+        // If the key looks like a team name rather than a match ID, try to resolve it
+        if(!id.match(/^m\d+$/)){
+          const parts=id.split(/\s+vs\.?\s+/i);
+          if(parts.length===2){
+            const t1=normTeam(parts[0].trim()).toLowerCase();
+            const t2=normTeam(parts[1].trim()).toLowerCase();
+            const key=[t1,t2].sort().join("|");
+            if(pairToId[key])id=pairToId[key];
+          }
+        }
+
         const m=getMatch(id);const day=getDayForMatch(id);
         if(!m||!day)continue;
-        if(!hasKickedOff(m,day.date))continue; // reject pre-kickoff
-        const implied=r.homeScore>r.awayScore?"home":r.awayScore>r.homeScore?"away":"draw";
-        if(r.winner&&r.winner!==implied){flagged.push(`${id}(score says ${implied}, winner says ${r.winner})`);continue;}
-        validated[id]={homeScore:r.homeScore,awayScore:r.awayScore};
-        added++;
+        if(!hasKickedOff(m,day.date))continue;
+
+        const status=r.status||"final";
+
+        if(status==="live"){
+          // Live scores: store separately, never saved to DB
+          newLive[id]={homeScore:r.homeScore,awayScore:r.awayScore,live:true,minute:r.minute||null};
+          liveCount++;
+        } else {
+          // Final scores: validate winner field then save
+          if(KNOWN_RESULTS[id])continue; // never overwrite hard-coded results
+          const implied=r.homeScore>r.awayScore?"home":r.awayScore>r.homeScore?"away":"draw";
+          if(r.winner&&r.winner!==implied){flagged.push(`${id}(score says ${implied}, winner says ${r.winner})`);continue;}
+          validated[id]={homeScore:r.homeScore,awayScore:r.awayScore};
+          added++;
+        }
       }
+
+      // Merge final results into persistent store; live scores replace live state only
       const nr={...results,...validated,...KNOWN_RESULTS};
-      setResults(nr);saveResultsToDB(nr);
+      setResults(nr);
+      setLiveScores(newLive);
+      if(Object.keys(validated).length>0)saveResultsToDB(nr);
+
       const msgs=[];
-      if(added>0)msgs.push(`${added} score${added>1?"s":""} updated`);
+      if(added>0)msgs.push(`${added} result${added>1?"s":""} confirmed`);
+      if(liveCount>0)msgs.push(`${liveCount} match${liveCount>1?"es":""} live`);
       if(flagged.length>0)msgs.push(`${flagged.length} flagged: ${flagged.join(", ")}`);
-      flash(msgs.length>0?msgs.join(". "):"No new scores found", flagged.length>0?"err":"ok", flagged.length>0);
+      flash(msgs.length>0?msgs.join(", "):"No new scores found", flagged.length>0?"err":"ok", flagged.length>0);
     }catch(e){
       console.error("fetchScores error",e);
       flash("Fetch failed: "+e.message,"err");
@@ -515,25 +599,41 @@ Return only the JSON object now:`;
 
   function MatchRow({m,dayDate}){
     const r=results[m.id];
+    const live=!r&&liveScores[m.id]; // live score only shown when no final result yet
     const p=(picks[dayDate]||[]).find(pk=>pk.matchId===m.id);
     const outcome=getOutcome(r);
     const correct=p&&outcome&&outcome===p.pick;
     const wrong=p&&outcome&&outcome!==p.pick;
+    // For a live match, check if the current score would mean the pick is winning
+    const liveOutcome=live?getOutcome(live):null;
+    const liveWinning=p&&live&&liveOutcome===p.pick;
+    const liveLosing=p&&live&&liveOutcome!==p.pick;
     const isToday=dayDate===TODAY;
     const started=hasKickedOff(m,dayDate);
     return(
       <div className="mrow">
         <div>
           <div className="mteams">{m.home} vs {m.away}</div>
-          <div className="mmeta">Grp {m.group} · {m.time}{r&&<span style={{marginLeft:4}}>· {r.homeScore}-{r.awayScore}</span>}</div>
-          {p&&<div className={`mpick ${correct?"cv":wrong?"wv":"pv"}`}>Pick: {pickLabel(p.pick,m)}{correct?" ✓":wrong?" ✗":""}</div>}
+          <div className="mmeta">
+            Grp {m.group} · {m.time}
+            {r&&<span style={{marginLeft:4}}>· {r.homeScore}-{r.awayScore}</span>}
+            {live&&<span style={{marginLeft:4,color:"#e07020"}}>· {live.homeScore}-{live.awayScore}{live.minute?` (${live.minute}')`:"  HT"}</span>}
+          </div>
+          {p&&<div className={`mpick ${correct?"cv":wrong?"wv":live&&liveWinning?"cv":live&&liveLosing?"wv":"pv"}`}>
+            Pick: {pickLabel(p.pick,m)}{correct?" ✓":wrong?" ✗":""}
+          </div>}
         </div>
-        <div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
           {correct&&<span className="chip cw">+$2</span>}
           {wrong&&<span className="chip cl">-$2</span>}
-          {p&&!r&&isToday&&started&&<span className="chip clive">Live</span>}
-          {p&&!r&&!isToday&&<span className="chip cp">TBD</span>}
+          {live&&<span className="chip clive" style={{display:"flex",alignItems:"center",gap:4}}>
+            <span style={{width:6,height:6,borderRadius:"50%",background:"#e07020",display:"inline-block",animation:"pulse 1.2s ease-in-out infinite"}}></span>
+            LIVE
+          </span>}
+          {!r&&!live&&p&&isToday&&started&&<span className="chip clive">Live</span>}
+          {!r&&!live&&p&&!isToday&&<span className="chip cp">TBD</span>}
           {!p&&r&&<span style={{fontSize:10,color:"#6b8a72"}}>{r.homeScore}-{r.awayScore}</span>}
+          {!p&&live&&<span style={{fontSize:10,color:"#e07020"}}>{live.homeScore}-{live.awayScore}{live.minute?` (${live.minute}')`:""}</span>}
         </div>
       </div>
     );
@@ -670,43 +770,6 @@ Return only the JSON object now:`;
                   <span className="ok" style={{fontSize:10}}>{syncStr?"Last sync "+syncStr:""}</span>
                 </div>
                 <div className="note">App auto-syncs every 30 seconds. Use Sync Scores in the header to fetch latest match results.</div>
-              </div>
-              <div className="divider">
-                <div className="fl">Enter score manually</div>
-                <div className="fr" style={{marginTop:6}}>
-                  <select value={sf.dayDate} onChange={e=>setSf(f=>({...f,dayDate:e.target.value,matchId:""}))}>
-                    {SCHEDULE.map(s=><option key={s.date} value={s.date}>{s.day}</option>)}
-                  </select>
-                </div>
-                <div className="fr">
-                  <select value={sf.matchId} onChange={e=>setSf(f=>({...f,matchId:e.target.value}))}>
-                    <option value="">Select match...</option>
-                    {(SCHEDULE.find(s=>s.date===sf.dayDate)?.matches||[]).map(m=>(
-                      <option key={m.id} value={m.id}>{m.home} vs {m.away}</option>
-                    ))}
-                  </select>
-                </div>
-                {sf.matchId&&(
-                  <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-                    <div style={{flex:1}}>
-                      <div className="fl">{getMatch(sf.matchId)?.home}</div>
-                      <input type="number" min="0" max="20" value={sf.homeScore}
-                        onChange={e=>setSf(f=>({...f,homeScore:e.target.value}))}
-                        style={{width:"100%",background:"#0f1a14",border:"0.5px solid #2d4a33",borderRadius:6,color:"#f5f0e8",fontSize:14,padding:"7px 9px",textAlign:"center"}}/>
-                    </div>
-                    <div style={{color:"#6b8a72",fontSize:14,paddingTop:18}}>–</div>
-                    <div style={{flex:1}}>
-                      <div className="fl">{getMatch(sf.matchId)?.away}</div>
-                      <input type="number" min="0" max="20" value={sf.awayScore}
-                        onChange={e=>setSf(f=>({...f,awayScore:e.target.value}))}
-                        style={{width:"100%",background:"#0f1a14",border:"0.5px solid #2d4a33",borderRadius:6,color:"#f5f0e8",fontSize:14,padding:"7px 9px",textAlign:"center"}}/>
-                    </div>
-                  </div>
-                )}
-                <div className="fa">
-                  <button className="btn" onClick={submitScore} disabled={!sf.matchId||sf.homeScore===""||sf.awayScore===""}>Save score</button>
-                </div>
-                <div className="note">Use this if Sync Scores misses a result. Saves to Supabase instantly so both players see it.</div>
               </div>
             </div>
           )}
