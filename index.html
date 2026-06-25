@@ -395,38 +395,58 @@ function App(){
 
   const fetchScores=useCallback(async()=>{
     setFetching(true);
+    // Name map: ESPN names -> our app names
+    const NAME_MAP={"congo dr":"dr congo","democratic republic of congo":"dr congo","cote d'ivoire":"ivory coast","côte d'ivoire":"ivory coast","türkiye":"turkiye","turkey":"turkiye","czech republic":"czechia","cape verde islands":"cape verde","korea republic":"south korea","united states":"usa","u.s.a.":"usa","bosnia and herzegovina":"bosnia","bosnia-herzegovina":"bosnia","bosnia & herzegovina":"bosnia","curaçao":"curacao"};
+    const norm=s=>{const l=s.toLowerCase().trim();return NAME_MAP[l]??l;};
     try{
-      // Call the Supabase Edge Function which uses the free ESPN API (no auth needed)
-      const matchesToSend=SCHEDULE.filter(d=>d.date<=TODAY).flatMap(d=>d.matches);
-      const res=await fetch(`${SUPABASE_URL}/functions/v1/fetch-scores`,{
-        method:"POST",
-        headers:{"Content-Type":"application/json","Authorization":`Bearer ${SUPABASE_KEY}`},
-        body:JSON.stringify({matches:matchesToSend.map(m=>({id:m.id,home:m.home,away:m.away}))})
-      });
-      if(!res.ok){
-        const errText=await res.text();
-        flash(`Sync error: ${res.status} ${errText.slice(0,80)}`,"err");
-        return;
-      }
-      const raw=await res.json();
-      if(raw.error){flash("Edge function error: "+raw.error,"err");return;}
+      const espnRes=await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=200");
+      if(!espnRes.ok)throw new Error(`ESPN ${espnRes.status}`);
+      const espnData=await espnRes.json();
+      const events=espnData?.events??[];
 
-      // Split into finals and live/in-progress
-      const validated={};
-      const newLive={};
-      let added=0;let liveCount=0;
-      for(const[id,r]of Object.entries(raw)){
-        if(typeof r.homeScore!=="number"||typeof r.awayScore!=="number")continue;
-        const m=getMatch(id);const day=getDayForMatch(id);
-        if(!m||!day)continue;
-        if(!hasKickedOff(m,day.date))continue;
-        if(KNOWN_RESULTS[id])continue; // hard-coded results always win
-        if(r.status==="live"||r.status==="in"||r.status==="halftime"){
-          newLive[id]={homeScore:r.homeScore,awayScore:r.awayScore,minute:r.minute||null,status:r.status};
+      // Build lookup keyed by sorted team-name pair (order-independent)
+      const espnMap={};
+      for(const ev of events){
+        const comp=ev?.competitions?.[0];
+        if(!comp)continue;
+        const comps=comp.competitors??[];
+        if(comps.length<2)continue;
+        const homeC=comps.find(c=>c.homeAway==="home");
+        const awayC=comps.find(c=>c.homeAway==="away");
+        if(!homeC||!awayC)continue;
+        const eh=norm(homeC.team?.displayName??homeC.team?.name??"");
+        const ea=norm(awayC.team?.displayName??awayC.team?.name??"");
+        const hs=parseInt(homeC.score??"0",10);
+        const as2=parseInt(awayC.score??"0",10);
+        const stype=ev?.status?.type?.name??"";
+        let status="upcoming";
+        if(stype==="STATUS_FINAL"||stype==="STATUS_FULL_TIME")status="final";
+        else if(stype==="STATUS_HALFTIME")status="halftime";
+        else if(stype==="STATUS_IN_PROGRESS")status="live";
+        const minute=ev?.status?.displayClock?parseInt(ev.status.displayClock,10)||null:null;
+        const key=[eh,ea].sort().join("|");
+        espnMap[key]={hs,as2,eh,ea,status,minute};
+      }
+
+      // Match against our schedule for today and earlier
+      const matchesToCheck=SCHEDULE.filter(d=>d.date<=TODAY).flatMap(d=>d.matches);
+      const validated={};const newLive={};let added=0;let liveCount=0;
+      for(const m of matchesToCheck){
+        if(KNOWN_RESULTS[m.id])continue; // hard-coded always wins
+        const oh=norm(m.home);const oa=norm(m.away);
+        const key=[oh,oa].sort().join("|");
+        const e=espnMap[key];
+        if(!e||e.status==="upcoming")continue;
+        const day=getDayForMatch(m.id);
+        if(day&&!hasKickedOff(m,day.date))continue;
+        // Swap scores if ESPN had teams in opposite order
+        let homeScore=e.hs;let awayScore=e.as2;
+        if(e.eh===oa&&e.ea===oh){homeScore=e.as2;awayScore=e.hs;}
+        if(e.status==="live"||e.status==="halftime"){
+          newLive[m.id]={homeScore,awayScore,minute:e.minute,status:e.status};
           liveCount++;
         } else {
-          // treat as final
-          validated[id]={homeScore:r.homeScore,awayScore:r.awayScore};
+          validated[m.id]={homeScore,awayScore};
           added++;
         }
       }
