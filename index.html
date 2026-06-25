@@ -617,7 +617,7 @@ Return only the JSON object now:`;
           <div className="mmeta">
             Grp {m.group} · {m.time}
             {r&&<span style={{marginLeft:4}}>· {r.homeScore}-{r.awayScore}</span>}
-            {live&&<span style={{marginLeft:4,color:"#e07020"}}>· {live.homeScore}-{live.awayScore}{live.minute?` (${live.minute}')`:"  HT"}</span>}
+            {live&&<span style={{marginLeft:4,color:"#e07020"}}>· {live.homeScore}-{live.awayScore}{live.minute?" ("+live.minute+"')":"  HT"}</span>}
           </div>
           {p&&<div className={`mpick ${correct?"cv":wrong?"wv":live&&liveWinning?"cv":live&&liveLosing?"wv":"pv"}`}>
             Pick: {pickLabel(p.pick,m)}{correct?" ✓":wrong?" ✗":""}
@@ -633,7 +633,7 @@ Return only the JSON object now:`;
           {!r&&!live&&p&&isToday&&started&&<span className="chip clive">Live</span>}
           {!r&&!live&&p&&!isToday&&<span className="chip cp">TBD</span>}
           {!p&&r&&<span style={{fontSize:10,color:"#6b8a72"}}>{r.homeScore}-{r.awayScore}</span>}
-          {!p&&live&&<span style={{fontSize:10,color:"#e07020"}}>{live.homeScore}-{live.awayScore}{live.minute?` (${live.minute}')`:""}</span>}
+          {!p&&live&&<span style={{fontSize:10,color:"#e07020"}}>{live.homeScore}-{live.awayScore}{live.minute?" ("+live.minute+"')":""}</span>}
         </div>
       </div>
     );
