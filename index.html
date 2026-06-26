@@ -421,10 +421,12 @@ function App(){
         // Use comp.status for clock/period - more reliable than ev.status for soccer
         const cst=comp?.status??ev?.status??{};
         const stype=cst?.type?.name??"";
+        const sstate=cst?.type?.state??"";       // "pre", "in", "post"
+        const sshort=(cst?.type?.shortDetail??"").toLowerCase();
         let status="upcoming";
-        if(stype==="STATUS_FINAL"||stype==="STATUS_FULL_TIME")status="final";
-        else if(stype==="STATUS_HALFTIME")status="halftime";
-        else if(stype==="STATUS_IN_PROGRESS"||stype==="STATUS_END_PERIOD")status="live";
+        if(sstate==="post"||stype==="STATUS_FINAL"||stype==="STATUS_FULL_TIME")status="final";
+        else if(stype==="STATUS_HALFTIME"||sshort.includes("half"))status="halftime";
+        else if(sstate==="in"||stype==="STATUS_IN_PROGRESS"||stype==="STATUS_END_PERIOD")status="live";
         // displayClock is a string like "23:14" or "45:00+2" - use as display label directly
         // period: 1=first half, 2=second half
         const clock=cst?.displayClock??null;
