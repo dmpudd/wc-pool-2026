@@ -418,14 +418,20 @@ function App(){
         const ea=norm(awayC.team?.displayName??awayC.team?.name??"");
         const hs=parseInt(homeC.score??"0",10);
         const as2=parseInt(awayC.score??"0",10);
-        const stype=ev?.status?.type?.name??"";
+        // Use comp.status for clock/period - more reliable than ev.status for soccer
+        const cst=comp?.status??ev?.status??{};
+        const stype=cst?.type?.name??"";
         let status="upcoming";
         if(stype==="STATUS_FINAL"||stype==="STATUS_FULL_TIME")status="final";
         else if(stype==="STATUS_HALFTIME")status="halftime";
-        else if(stype==="STATUS_IN_PROGRESS")status="live";
-        const minute=ev?.status?.displayClock?parseInt(ev.status.displayClock,10)||null:null;
+        else if(stype==="STATUS_IN_PROGRESS"||stype==="STATUS_END_PERIOD")status="live";
+        // displayClock is a string like "23:14" or "45:00+2" - use as display label directly
+        // period: 1=first half, 2=second half
+        const clock=cst?.displayClock??null;
+        const period=cst?.period??null;
+        const minute=(clock&&clock!=="0:00")?clock:null;
         const key=[eh,ea].sort().join("|");
-        espnMap[key]={hs,as2,eh,ea,status,minute};
+        espnMap[key]={hs,as2,eh,ea,status,minute,period};
       }
 
       // Match against our schedule for today and earlier
@@ -443,7 +449,7 @@ function App(){
         let homeScore=e.hs;let awayScore=e.as2;
         if(e.eh===oa&&e.ea===oh){homeScore=e.as2;awayScore=e.hs;}
         if(e.status==="live"||e.status==="halftime"){
-          newLive[m.id]={homeScore,awayScore,minute:e.minute,status:e.status};
+          newLive[m.id]={homeScore,awayScore,minute:e.minute,period:e.period,status:e.status};
           liveCount++;
         } else {
           validated[m.id]={homeScore,awayScore};
@@ -517,7 +523,13 @@ function App(){
     const liveLosingNow=p&&liveOutcome&&liveOutcome!==p.pick;
     const isToday=dayDate===TODAY;
     const started=hasKickedOff(m,dayDate);
-    const liveScoreStr=live?(live.status==="halftime"?`${live.homeScore}-${live.awayScore} HT`:live.minute?`${live.homeScore}-${live.awayScore} (${live.minute}')` :`${live.homeScore}-${live.awayScore}`):null;
+    const liveScoreStr=live?(()=>{
+      const score=`${live.homeScore}-${live.awayScore}`;
+      if(live.status==="halftime")return score+" · HT";
+      const halfLabel=live.period===2?"2nd":live.period===1?"1st":"";
+      const clockLabel=live.minute?(halfLabel?halfLabel+" "+live.minute:live.minute):"";
+      return clockLabel?score+" · "+clockLabel:score;
+    })():null;
     return(
       <div className="mrow">
         <div>
