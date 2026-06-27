@@ -265,11 +265,11 @@ const INITIAL_PICKS = {
 
 const STAKES = [
   {round:"Group stage",   games:"48 games",  stake:"$2"},
-  {round:"Round of 32",  games:"32 games",  stake:"$4"},
-  {round:"Round of 16",  games:"16 games",  stake:"$8"},
-  {round:"Quarter-finals",games:"8 games",  stake:"$16"},
-  {round:"Semi-finals",  games:"4 games",   stake:"$32"},
-  {round:"Final",        games:"1 game",    stake:"$64"},
+  {round:"Round of 32",  games:"32 games",  stake:"$2"},
+  {round:"Round of 16",  games:"16 games",  stake:"$2"},
+  {round:"Quarter-finals",games:"8 games",  stake:"$2"},
+  {round:"Semi-finals",  games:"4 games",   stake:"$2"},
+  {round:"Final",        games:"1 game",    stake:"$2"},
 ];
 
 function getMatch(id){for(const d of SCHEDULE)for(const m of d.matches)if(m.id===id)return m;return null;}
@@ -751,7 +751,7 @@ function App(){
                 </tbody>
               </table>
               <div className="stakes-note">
-                Each day one player picks all of that day's matches. Every pick must be exactly right: a win pick only pays if that team wins outright, a draw pick only pays if the match ends level. Right pick earns the stake. Wrong pick pays the other player the same amount. Stakes double each round from group stage through to the final.
+                Each day one player picks all of that day's matches. Every pick must be exactly right: a win pick only pays if that team wins outright, a draw pick only pays if the match ends level. Right pick earns the stake. Wrong pick pays the other player the same amount. Stake is $2 per game throughout all rounds.
               </div>
             </div>
           )}
