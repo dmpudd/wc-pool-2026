@@ -201,8 +201,8 @@ const SCHEDULE = [
     { id:"r07", time:"6:00 PM PT",  home:"Mexico",      away:"Ecuador",  group:"R32" },
   ]},
   { date:"2026-07-01", day:"Wed Jul 1", picker:"David", matches:[
-    { id:"r08", time:"9:00 AM PT",  home:"England",     away:"Senegal",  group:"R32" },
-    { id:"r09", time:"1:00 PM PT",  home:"Belgium",     away:"South Korea", group:"R32" },
+    { id:"r08", time:"9:00 AM PT",  home:"England",     away:"DR Congo", group:"R32" },
+    { id:"r09", time:"1:00 PM PT",  home:"Belgium",     away:"Senegal",  group:"R32" },
     { id:"r10", time:"5:00 PM PT",  home:"USA",         away:"Bosnia",   group:"R32" },
   ]},
   { date:"2026-07-02", day:"Thu Jul 2", picker:"Thomas", matches:[
@@ -214,6 +214,23 @@ const SCHEDULE = [
     { id:"r14", time:"11:00 AM PT", home:"Australia",   away:"Egypt",    group:"R32" },
     { id:"r15", time:"3:00 PM PT",  home:"Argentina",   away:"Cape Verde", group:"R32" },
     { id:"r16", time:"6:30 PM PT",  home:"Colombia",    away:"Ghana",    group:"R32" },
+  ]},
+  // ── ROUND OF 16 ───────────────────────────────────────────────────────────────
+  { date:"2026-07-04", day:"Sat Jul 4", picker:"Thomas", matches:[
+    { id:"k01", time:"10:00 AM PT", home:"Canada",   away:"Morocco", group:"R16" },
+    { id:"k02", time:"2:00 PM PT",  home:"Paraguay", away:"France",  group:"R16" },
+  ]},
+  { date:"2026-07-05", day:"Sun Jul 5", picker:"David", matches:[
+    { id:"k03", time:"1:00 PM PT",  home:"Brazil", away:"Norway",  group:"R16" },
+    { id:"k04", time:"5:00 PM PT",  home:"Mexico", away:"England", group:"R16" },
+  ]},
+  { date:"2026-07-06", day:"Mon Jul 6", picker:"Thomas", matches:[
+    { id:"k05", time:"12:00 PM PT", home:"Portugal", away:"Spain",   group:"R16" },
+    { id:"k06", time:"5:00 PM PT",  home:"USA",      away:"Belgium", group:"R16" },
+  ]},
+  { date:"2026-07-07", day:"Tue Jul 7", picker:"David", matches:[
+    { id:"k07", time:"9:00 AM PT",  home:"Argentina",   away:"Egypt",    group:"R16" },
+    { id:"k08", time:"1:00 PM PT",  home:"Switzerland", away:"Colombia", group:"R16" },
   ]},
 ];
 
@@ -264,6 +281,29 @@ const KNOWN_RESULTS = {
   m60:{homeScore:0,awayScore:2},  m61:{homeScore:2,awayScore:1},
   m62:{homeScore:0,awayScore:0},  m63:{homeScore:3,awayScore:1},
   m64:{homeScore:3,awayScore:3},  m65:{homeScore:1,awayScore:3},
+  // ── ROUND OF 32 (all decided; ties from penalty shootouts use winner to break the tie) ──
+  // Jun 28: South Africa 0-1 Canada
+  r01:{homeScore:0,awayScore:1},
+  // Jun 29: Brazil 2-1 Japan, Germany 1-1 Paraguay (Paraguay wins 4-3 on penalties), Netherlands 1-1 Morocco (Morocco wins 3-2 on penalties)
+  r02:{homeScore:2,awayScore:1},
+  r03:{homeScore:1,awayScore:1,winner:"away"},
+  r04:{homeScore:1,awayScore:1,winner:"away"},
+  // Jun 30: Ivory Coast 1-2 Norway, France 3-0 Sweden, Mexico 2-0 Ecuador
+  r05:{homeScore:1,awayScore:2},
+  r06:{homeScore:3,awayScore:0},
+  r07:{homeScore:2,awayScore:0},
+  // Jul 1: England 2-1 DR Congo, Belgium 3-2 Senegal (AET), USA 2-0 Bosnia
+  r08:{homeScore:2,awayScore:1},
+  r09:{homeScore:3,awayScore:2},
+  r10:{homeScore:2,awayScore:0},
+  // Jul 2: Spain 3-0 Austria, Portugal 2-1 Croatia, Switzerland 2-0 Algeria
+  r11:{homeScore:3,awayScore:0},
+  r12:{homeScore:2,awayScore:1},
+  r13:{homeScore:2,awayScore:0},
+  // Jul 3: Australia 1-1 Egypt (Egypt wins 4-2 on penalties), Argentina 3-2 Cape Verde (AET), Colombia 1-0 Ghana
+  r14:{homeScore:1,awayScore:1,winner:"away"},
+  r15:{homeScore:3,awayScore:2},
+  r16:{homeScore:1,awayScore:0},
 };
 
 const INITIAL_PICKS = {
@@ -322,7 +362,7 @@ const STAKES = [
 
 function getMatch(id){for(const d of SCHEDULE)for(const m of d.matches)if(m.id===id)return m;return null;}
 function getDayForMatch(id){return SCHEDULE.find(d=>d.matches.some(m=>m.id===id));}
-function getOutcome(r){if(!r)return null;if(r.homeScore>r.awayScore)return"home";if(r.awayScore>r.homeScore)return"away";return"draw";}
+function getOutcome(r){if(!r)return null;if(r.winner)return r.winner;if(r.homeScore>r.awayScore)return"home";if(r.awayScore>r.homeScore)return"away";return"draw";}
 function pickLabel(pick,m){if(!m)return pick;if(pick==="home")return m.home+" win";if(pick==="away")return m.away+" win";return"Draw";}
 
 function hasKickedOff(m,dayDate){
@@ -584,8 +624,8 @@ function App(){
       <div className="mrow">
         <div>
           <div className="mteams">{m.home} vs {m.away}</div>
-          <div className="mmeta">{m.group==="R32"?"Round of 32":"Grp "+m.group} · {m.time}
-            {r&&<span style={{marginLeft:4}}>· {r.homeScore}-{r.awayScore}</span>}
+          <div className="mmeta">{m.group==="R32"?"Round of 32":m.group==="R16"?"Round of 16":"Grp "+m.group} · {m.time}
+            {r&&<span style={{marginLeft:4}}>· {r.homeScore}-{r.awayScore}{r.winner&&r.homeScore===r.awayScore?" (pens)":""}</span>}
             {!r&&live&&<span style={{marginLeft:4,color:"#e07020"}}>· {liveScoreStr}</span>}
           </div>
           {p&&<div className={`mpick ${correct?"cv":wrong?"wv":live?(liveWinning?"cv":liveLosingNow?"wv":"pv"):"pv"}`}>Pick: {pickLabel(p.pick,m)}{correct?" ✓":wrong?" ✗":""}</div>}
@@ -599,7 +639,7 @@ function App(){
           </span>}
           {!r&&!live&&p&&isToday&&started&&<span className="chip clive">Live</span>}
           {!r&&!live&&p&&!isToday&&<span className="chip cp">TBD</span>}
-          {!p&&r&&<span style={{fontSize:10,color:"#6b8a72"}}>{r.homeScore}-{r.awayScore}</span>}
+          {!p&&r&&<span style={{fontSize:10,color:"#6b8a72"}}>{r.homeScore}-{r.awayScore}{r.winner&&r.homeScore===r.awayScore?" (pens)":""}</span>}
           {!p&&!r&&live&&<span style={{fontSize:10,color:"#e07020"}}>{liveScoreStr}</span>}
         </div>
       </div>
@@ -681,7 +721,7 @@ function App(){
                         <div style={{fontSize:10,color:"#6b8a72",marginTop:1}}>{m.time}</div>
                         {p&&<div style={{fontSize:11,color:"#8a9e8f",marginTop:1}}>Pick: {pickLabel(p.pick,m)}</div>}
                       </div>
-                      <span className="sg">{m.group==="R32"?"R32":"Grp "+m.group}</span>
+                      <span className="sg">{m.group==="R32"?"R32":m.group==="R16"?"R16":"Grp "+m.group}</span>
                     </div>
                   );
                 })}
