@@ -232,6 +232,17 @@ const SCHEDULE = [
     { id:"k07", time:"9:00 AM PT",  home:"Argentina",   away:"Egypt",    group:"R16" },
     { id:"k08", time:"1:00 PM PT",  home:"Switzerland", away:"Colombia", group:"R16" },
   ]},
+  // ── QUARTER-FINALS ────────────────────────────────────────────────────────────
+  { date:"2026-07-09", day:"Thu Jul 9", picker:"Thomas", matches:[
+    { id:"q01", time:"1:00 PM PT", home:"France", away:"Morocco", group:"QF" },
+  ]},
+  { date:"2026-07-10", day:"Fri Jul 10", picker:"David", matches:[
+    { id:"q02", time:"12:00 PM PT", home:"Spain", away:"Belgium", group:"QF" },
+  ]},
+  { date:"2026-07-11", day:"Sat Jul 11", picker:"Thomas", matches:[
+    { id:"q03", time:"2:00 PM PT", home:"Norway", away:"England", group:"QF" },
+    { id:"q04", time:"6:00 PM PT", home:"TBC (Argentina/Egypt)", away:"TBC (Switzerland/Colombia)", group:"QF" },
+  ]},
 ];
 
 const KNOWN_RESULTS = {
@@ -304,6 +315,18 @@ const KNOWN_RESULTS = {
   r14:{homeScore:1,awayScore:1,winner:"away"},
   r15:{homeScore:3,awayScore:2},
   r16:{homeScore:1,awayScore:0},
+  // ── ROUND OF 16 ───────────────────────────────────────────────────────────────
+  // Jul 4: Canada 0-3 Morocco
+  k01:{homeScore:0,awayScore:3},
+  // Jul 5: Paraguay 0-1 France, Brazil 0-2 Norway
+  k02:{homeScore:0,awayScore:1},
+  k03:{homeScore:0,awayScore:2},
+  // Jul 6: Portugal 0-1 Spain, USA 1-4 Belgium
+  k05:{homeScore:0,awayScore:1},
+  k06:{homeScore:1,awayScore:4},
+  // Jul 5: Mexico 2-3 England
+  k04:{homeScore:2,awayScore:3},
+  // Jul 7: Argentina vs Egypt, Switzerland vs Colombia — not yet played, pending
 };
 
 const INITIAL_PICKS = {
@@ -624,7 +647,7 @@ function App(){
       <div className="mrow">
         <div>
           <div className="mteams">{m.home} vs {m.away}</div>
-          <div className="mmeta">{m.group==="R32"?"Round of 32":m.group==="R16"?"Round of 16":"Grp "+m.group} · {m.time}
+          <div className="mmeta">{m.group==="R32"?"Round of 32":m.group==="R16"?"Round of 16":m.group==="QF"?"Quarter-final":"Grp "+m.group} · {m.time}
             {r&&<span style={{marginLeft:4}}>· {r.homeScore}-{r.awayScore}{r.winner&&r.homeScore===r.awayScore?" (pens)":""}</span>}
             {!r&&live&&<span style={{marginLeft:4,color:"#e07020"}}>· {liveScoreStr}</span>}
           </div>
@@ -721,7 +744,7 @@ function App(){
                         <div style={{fontSize:10,color:"#6b8a72",marginTop:1}}>{m.time}</div>
                         {p&&<div style={{fontSize:11,color:"#8a9e8f",marginTop:1}}>Pick: {pickLabel(p.pick,m)}</div>}
                       </div>
-                      <span className="sg">{m.group==="R32"?"R32":m.group==="R16"?"R16":"Grp "+m.group}</span>
+                      <span className="sg">{m.group==="R32"?"R32":m.group==="R16"?"R16":m.group==="QF"?"QF":"Grp "+m.group}</span>
                     </div>
                   );
                 })}
