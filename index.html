@@ -241,7 +241,7 @@ const SCHEDULE = [
   ]},
   { date:"2026-07-11", day:"Sat Jul 11", picker:"Thomas", matches:[
     { id:"q03", time:"2:00 PM PT", home:"Norway", away:"England", group:"QF" },
-    { id:"q04", time:"6:00 PM PT", home:"TBC (Argentina/Egypt)", away:"TBC (Switzerland/Colombia)", group:"QF" },
+    { id:"q04", time:"6:00 PM PT", home:"Argentina", away:"Switzerland", group:"QF" },
   ]},
 ];
 
@@ -326,7 +326,9 @@ const KNOWN_RESULTS = {
   k06:{homeScore:1,awayScore:4},
   // Jul 5: Mexico 2-3 England
   k04:{homeScore:2,awayScore:3},
-  // Jul 7: Argentina vs Egypt, Switzerland vs Colombia — not yet played, pending
+  // Jul 7: Argentina 3-2 Egypt, Switzerland 0-0 Colombia (Switzerland wins 4-3 on penalties)
+  k07:{homeScore:3,awayScore:2},
+  k08:{homeScore:0,awayScore:0,winner:"home"},
 };
 
 const INITIAL_PICKS = {
