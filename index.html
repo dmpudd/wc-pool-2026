@@ -243,6 +243,13 @@ const SCHEDULE = [
     { id:"q03", time:"2:00 PM PT", home:"Norway", away:"England", group:"QF" },
     { id:"q04", time:"6:00 PM PT", home:"Argentina", away:"Switzerland", group:"QF" },
   ]},
+  // ── SEMI-FINALS ───────────────────────────────────────────────────────────────
+  { date:"2026-07-14", day:"Tue Jul 14", picker:"Thomas", matches:[
+    { id:"s01", time:"12:00 PM PT", home:"France", away:"Spain", group:"SF" },
+  ]},
+  { date:"2026-07-15", day:"Wed Jul 15", picker:"David", matches:[
+    { id:"s02", time:"12:00 PM PT", home:"England", away:"Argentina", group:"SF" },
+  ]},
 ];
 
 const KNOWN_RESULTS = {
@@ -329,6 +336,14 @@ const KNOWN_RESULTS = {
   // Jul 7: Argentina 3-2 Egypt, Switzerland 0-0 Colombia (Switzerland wins 4-3 on penalties)
   k07:{homeScore:3,awayScore:2},
   k08:{homeScore:0,awayScore:0,winner:"home"},
+  // ── QUARTER-FINALS ───────────────────────────────────────────────────────────
+  // Jul 9: France 2-0 Morocco
+  q01:{homeScore:2,awayScore:0},
+  // Jul 10: Spain 2-1 Belgium
+  q02:{homeScore:2,awayScore:1},
+  // Jul 11: Norway 1-2 England (AET), Argentina 3-1 Switzerland (AET)
+  q03:{homeScore:1,awayScore:2},
+  q04:{homeScore:3,awayScore:1},
 };
 
 const INITIAL_PICKS = {
@@ -649,7 +664,7 @@ function App(){
       <div className="mrow">
         <div>
           <div className="mteams">{m.home} vs {m.away}</div>
-          <div className="mmeta">{m.group==="R32"?"Round of 32":m.group==="R16"?"Round of 16":m.group==="QF"?"Quarter-final":"Grp "+m.group} · {m.time}
+          <div className="mmeta">{m.group==="R32"?"Round of 32":m.group==="R16"?"Round of 16":m.group==="QF"?"Quarter-final":m.group==="SF"?"Semi-final":"Grp "+m.group} · {m.time}
             {r&&<span style={{marginLeft:4}}>· {r.homeScore}-{r.awayScore}{r.winner&&r.homeScore===r.awayScore?" (pens)":""}</span>}
             {!r&&live&&<span style={{marginLeft:4,color:"#e07020"}}>· {liveScoreStr}</span>}
           </div>
@@ -746,7 +761,7 @@ function App(){
                         <div style={{fontSize:10,color:"#6b8a72",marginTop:1}}>{m.time}</div>
                         {p&&<div style={{fontSize:11,color:"#8a9e8f",marginTop:1}}>Pick: {pickLabel(p.pick,m)}</div>}
                       </div>
-                      <span className="sg">{m.group==="R32"?"R32":m.group==="R16"?"R16":m.group==="QF"?"QF":"Grp "+m.group}</span>
+                      <span className="sg">{m.group==="R32"?"R32":m.group==="R16"?"R16":m.group==="QF"?"QF":m.group==="SF"?"SF":"Grp "+m.group}</span>
                     </div>
                   );
                 })}
