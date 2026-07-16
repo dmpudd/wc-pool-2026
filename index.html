@@ -250,6 +250,14 @@ const SCHEDULE = [
   { date:"2026-07-15", day:"Wed Jul 15", picker:"David", matches:[
     { id:"s02", time:"12:00 PM PT", home:"England", away:"Argentina", group:"SF" },
   ]},
+  // ── THIRD-PLACE MATCH ─────────────────────────────────────────────────────────
+  { date:"2026-07-18", day:"Sat Jul 18", picker:"Thomas", matches:[
+    { id:"t01", time:"2:00 PM PT", home:"France", away:"England", group:"3RD" },
+  ]},
+  // ── FINAL ──────────────────────────────────────────────────────────────────────
+  { date:"2026-07-19", day:"Sun Jul 19", picker:"David", matches:[
+    { id:"f01", time:"12:00 PM PT", home:"Spain", away:"Argentina", group:"FIN" },
+  ]},
 ];
 
 const KNOWN_RESULTS = {
@@ -344,6 +352,11 @@ const KNOWN_RESULTS = {
   // Jul 11: Norway 1-2 England (AET), Argentina 3-1 Switzerland (AET)
   q03:{homeScore:1,awayScore:2},
   q04:{homeScore:3,awayScore:1},
+  // ── SEMI-FINALS ──────────────────────────────────────────────────────────────
+  // Jul 14: France 0-2 Spain
+  s01:{homeScore:0,awayScore:2},
+  // Jul 15: England 1-2 Argentina
+  s02:{homeScore:1,awayScore:2},
 };
 
 const INITIAL_PICKS = {
@@ -397,6 +410,7 @@ const STAKES = [
   {round:"Round of 16",  games:"8 games",   stake:"$2"},
   {round:"Quarter-finals",games:"4 games",  stake:"$2"},
   {round:"Semi-finals",  games:"2 games",   stake:"$2"},
+  {round:"Third-place",  games:"1 game",    stake:"$2"},
   {round:"Final",        games:"1 game",    stake:"$2"},
 ];
 
@@ -664,7 +678,7 @@ function App(){
       <div className="mrow">
         <div>
           <div className="mteams">{m.home} vs {m.away}</div>
-          <div className="mmeta">{m.group==="R32"?"Round of 32":m.group==="R16"?"Round of 16":m.group==="QF"?"Quarter-final":m.group==="SF"?"Semi-final":"Grp "+m.group} · {m.time}
+          <div className="mmeta">{m.group==="R32"?"Round of 32":m.group==="R16"?"Round of 16":m.group==="QF"?"Quarter-final":m.group==="SF"?"Semi-final":m.group==="3RD"?"Third-place match":m.group==="FIN"?"Final":"Grp "+m.group} · {m.time}
             {r&&<span style={{marginLeft:4}}>· {r.homeScore}-{r.awayScore}{r.winner&&r.homeScore===r.awayScore?" (pens)":""}</span>}
             {!r&&live&&<span style={{marginLeft:4,color:"#e07020"}}>· {liveScoreStr}</span>}
           </div>
@@ -761,7 +775,7 @@ function App(){
                         <div style={{fontSize:10,color:"#6b8a72",marginTop:1}}>{m.time}</div>
                         {p&&<div style={{fontSize:11,color:"#8a9e8f",marginTop:1}}>Pick: {pickLabel(p.pick,m)}</div>}
                       </div>
-                      <span className="sg">{m.group==="R32"?"R32":m.group==="R16"?"R16":m.group==="QF"?"QF":m.group==="SF"?"SF":"Grp "+m.group}</span>
+                      <span className="sg">{m.group==="R32"?"R32":m.group==="R16"?"R16":m.group==="QF"?"QF":m.group==="SF"?"SF":m.group==="3RD"?"3rd":m.group==="FIN"?"Final":"Grp "+m.group}</span>
                     </div>
                   );
                 })}
