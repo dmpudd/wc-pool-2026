@@ -419,8 +419,12 @@ const STAKES = [
   {round:"Quarter-finals",games:"4 games",  stake:"$2"},
   {round:"Semi-finals",  games:"2 games",   stake:"$2"},
   {round:"Third-place",  games:"1 game",    stake:"$2"},
-  {round:"Final",        games:"1 game",    stake:"$2"},
+  {round:"Final",        games:"1 game",    stake:"$15"},
 ];
+
+// Per-match stake overrides. Any matchId not listed here uses the default $2 stake.
+const STAKE_OVERRIDES = { f01:15 };
+function getStake(matchId){return STAKE_OVERRIDES[matchId]??2;}
 
 function getMatch(id){for(const d of SCHEDULE)for(const m of d.matches)if(m.id===id)return m;return null;}
 function getDayForMatch(id){return SCHEDULE.find(d=>d.matches.some(m=>m.id===id));}
@@ -451,8 +455,9 @@ function calcStats(picks,results){
       const r=results[p.matchId];total++;
       if(!r)continue;
       const ok=getOutcome(r)===p.pick;settled++;
-      if(isT){if(ok){tW++;tNet+=2;}else{tL++;tNet-=2;}}
-      else{if(ok){dW++;dNet+=2;}else{dL++;dNet-=2;}}
+      const stake=getStake(p.matchId);
+      if(isT){if(ok){tW++;tNet+=stake;}else{tL++;tNet-=stake;}}
+      else{if(ok){dW++;dNet+=stake;}else{dL++;dNet-=stake;}}
       chron.push(ok?(isT?"Thomas":"David"):(isT?"David":"Thomas"));
     }
   }
@@ -693,8 +698,8 @@ function App(){
           {p&&<div className={`mpick ${correct?"cv":wrong?"wv":live?(liveWinning?"cv":liveLosingNow?"wv":"pv"):"pv"}`}>Pick: {pickLabel(p.pick,m)}{correct?" ✓":wrong?" ✗":""}</div>}
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
-          {correct&&<span className="chip cw">+$2</span>}
-          {wrong&&<span className="chip cl">-$2</span>}
+          {correct&&<span className="chip cw">+${getStake(m.id)}</span>}
+          {wrong&&<span className="chip cl">-${getStake(m.id)}</span>}
           {!r&&live&&<span className="chip clive" style={{display:"flex",alignItems:"center",gap:4}}>
             <span style={{width:6,height:6,borderRadius:"50%",background:"#e07020",display:"inline-block",animation:"pulse 1.2s ease-in-out infinite"}}></span>
             LIVE
@@ -901,7 +906,7 @@ function App(){
                 </tbody>
               </table>
               <div className="stakes-note">
-                Each day one player picks all of that day's matches. Every pick must be exactly right: a win pick only pays if that team wins outright, a draw pick only pays if the match ends level. Right pick earns the stake. Wrong pick pays the other player the same amount. Stake is a flat $2 per game throughout all rounds.
+                Each day one player picks all of that day's matches. Every pick must be exactly right: a win pick only pays if that team wins outright, a draw pick only pays if the match ends level. Right pick earns the stake. Wrong pick pays the other player the same amount. Stake is a flat $2 per game throughout all rounds, except the Final, which is a one-off $15 stake.
               </div>
             </div>
           )}
